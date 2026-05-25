@@ -1,0 +1,10 @@
+<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="14" cy="14" r="14" fill="url(#agent-grad)"/>
+  <path d="M14 7l1.5 3.6 3.9 1.4-3.9 1.4L14 17l-1.5-3.6-3.9-1.4 3.9-1.4L14 7z" fill="white" opacity="0.95"/>
+  <defs>
+    <linearGradient id="agent-grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4d6cf7"/>
+      <stop offset="1" stop-color="#a55ff8"/>
+    </linearGradient>
+  </defs>
+</svg>

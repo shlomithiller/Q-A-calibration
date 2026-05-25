@@ -1,0 +1,21 @@
+<svg width="200" height="160" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background soft glow -->
+  <circle cx="100" cy="80" r="56" fill="#EDF4FF"/>
+  <!-- Main circle -->
+  <circle cx="100" cy="80" r="42" fill="#D6E6FF"/>
+  <!-- Inner circle -->
+  <circle cx="100" cy="80" r="30" fill="#0250D9"/>
+  <!-- Checkmark -->
+  <path d="M86 80L95 89L114 70" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Sparkle top-right -->
+  <path d="M148 40L150 46L156 48L150 50L148 56L146 50L140 48L146 46Z" fill="#0250D9" opacity="0.6"/>
+  <!-- Sparkle top-left -->
+  <path d="M52 36L53.5 40.5L58 42L53.5 43.5L52 48L50.5 43.5L46 42L50.5 40.5Z" fill="#4992FE" opacity="0.5"/>
+  <!-- Sparkle bottom-right -->
+  <path d="M155 100L156.5 104L160.5 105.5L156.5 107L155 111L153.5 107L149.5 105.5L153.5 104Z" fill="#4992FE" opacity="0.4"/>
+  <!-- Small dot accents -->
+  <circle cx="60" cy="110" r="3" fill="#D6E6FF"/>
+  <circle cx="145" cy="65" r="2.5" fill="#D6E6FF"/>
+  <circle cx="52" cy="88" r="2" fill="#0250D9" opacity="0.3"/>
+  <circle cx="155" cy="85" r="2" fill="#0250D9" opacity="0.25"/>
+</svg>
