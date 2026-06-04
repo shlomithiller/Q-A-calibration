@@ -1,8 +1,9 @@
 import { Grid, Home, Bell, HelpCircle, ChevronDown, ArrowLeft } from './Icons';
 
 interface AppShellProps {
-  view: 'list' | 'detail';
+  view: 'list' | 'detail' | 'test-suites' | 'regression-test';
   onBackToCalibration: () => void;
+  onNavigateToTests?: () => void;
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
 }
@@ -10,6 +11,7 @@ interface AppShellProps {
 export function AppShell({
   view,
   onBackToCalibration,
+  onNavigateToTests,
   children,
   rightPanel,
 }: AppShellProps) {
@@ -42,17 +44,17 @@ export function AppShell({
             <span>Q&amp;A Calibration</span>
           </button>
           <nav className="nav">
-            {view === 'list' ? (
+            {view === 'regression-test' || view === 'test-suites' ? (
               <>
-                <button className="nav-item active">All Questions</button>
+                <button className="nav-item" onClick={onBackToCalibration}>All Questions</button>
                 <button className="nav-item">Verified Questions</button>
-                <button className="nav-item">Batch Regression</button>
+                <button className="nav-item active">Regression Tests</button>
               </>
             ) : (
               <>
                 <button className="nav-item active">All Questions</button>
                 <button className="nav-item">Verified Questions</button>
-                <button className="nav-item">Tests</button>
+                <button className="nav-item" onClick={onNavigateToTests}>Regression Tests</button>
               </>
             )}
           </nav>

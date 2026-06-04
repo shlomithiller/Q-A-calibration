@@ -8,6 +8,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   Check,
+  Warning,
 } from './Icons';
 import { QueryPanel } from './QueryPanel';
 import { ChartPreview } from './ChartPreview';
@@ -18,6 +19,7 @@ export interface QuestionDetailProps {
   loading: boolean;
   saving: Classification | null;
   onBack: () => void;
+  reEvaluating?: boolean;
 }
 
 type RightTab = 'sources' | 'query';
@@ -27,6 +29,7 @@ export function QuestionDetail({
   loading,
   saving,
   onBack,
+  reEvaluating,
 }: QuestionDetailProps) {
   const [rightTab, setRightTab] = useState<RightTab>('query');
 
@@ -94,6 +97,13 @@ export function QuestionDetail({
         </div>
       </div>
 
+      <div className={question.classification === 'regression' ? 'regression-card-wrapper' : 'evaluation-card-wrapper'}>
+        {question.classification === 'regression' && (
+          <div className="regression-scoped-notification">
+            <Warning size={16} />
+            <span>This answer was previously classified as Accurate but has failed at 4/12/2026 05:30 PM during regression testing.</span>
+          </div>
+        )}
       <div className="evaluation-card">
         <section className="eval-panel">
           <div className="eval-panel-header">
@@ -206,6 +216,14 @@ export function QuestionDetail({
           </div>
         )}
       </div>
+      </div>
+
+      {reEvaluating && (
+        <div className="re-evaluating-blanket">
+          <div className="spinner" />
+          <div className="re-evaluating-text">Re-evaluating question with updated model...</div>
+        </div>
+      )}
     </div>
   );
 }

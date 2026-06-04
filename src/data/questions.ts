@@ -1,4 +1,4 @@
-export type Classification = 'new' | 'inaccurate' | 'accurate';
+export type Classification = 'new' | 'inaccurate' | 'accurate' | 'regression';
 export type Source = 'Manual' | 'Feedback' | 'AI Generated';
 
 export interface ChartPoint {
@@ -220,4 +220,62 @@ export const questions: Question[] = [
       ],
     },
   },
+  ...(generateGoldenQuestions()),
 ];
+
+function generateGoldenQuestions(): Question[] {
+  const texts = [
+    'What is the average NPS score of all customers that have critical tickets and open pipeline?',
+    'What is our average days to close?',
+    'Show me the total sales amount and opportunity type for closed won deals last quarter',
+    'Compare the average deal size for each lead source',
+    "What's the total opportunity amount by opportunity stage for this quarter",
+    'Total opportunity amount between aug 1 2024 and dec 1 2024, by closed date and region',
+    'Whats the Average Deal Size this Quarter?',
+    'List unconverted leads grouped by rating level and acquisition channel',
+    'Compare lead conversion rate in the prior month for different sources, when responding exclude partner leads',
+    "What's the total opportunity amount by opportunity stage for this quarter filtered by West region",
+    'Which lead sources are generating the highest number of converted leads this quarter?',
+    'Show pipeline velocity by sales rep for Q3',
+    'What is the win rate by account segment?',
+    'Show me monthly recurring revenue trend for the last 6 months',
+    'Break down customer churn rate by industry vertical',
+    'What is the average contract value for enterprise vs mid-market?',
+    'Show forecast accuracy by quarter for the sales team',
+    'What are the top 5 products by revenue contribution?',
+    'Compare customer lifetime value across acquisition channels',
+    'Show me the support ticket resolution time by priority level',
+  ];
+  const sources: Source[] = ['Manual', 'Feedback', 'AI Generated', 'Manual'];
+  const models = ['C360', 'Sales', 'Marketing', 'Support'];
+  const dates = [
+    'Jan 28, 2024', 'Jan 27, 2024', 'Jan 25, 2024', 'Jan 24, 2024',
+    'Jan 23, 2024', 'Jan 22, 2024', 'Jan 11, 2024', 'Jan 10, 2024',
+    'Jan 09, 2024', 'Jan 08, 2024', 'Jan 07, 2024', 'Jan 06, 2024',
+    'Jan 05, 2024', 'Jan 04, 2024', 'Jan 03, 2024', 'Jan 02, 2024',
+    'Dec 28, 2023', 'Dec 27, 2023', 'Dec 22, 2023', 'Dec 20, 2023',
+  ];
+
+  return texts.map((text, i): Question => ({
+    id: `g${i + 1}`,
+    text,
+    source: sources[i % sources.length],
+    thumbsUp: 5 + Math.floor(i * 1.7),
+    thumbsDown: i % 5 === 0 ? 1 : 0,
+    semanticModel: models[i % models.length],
+    lastModified: dates[i],
+    classification: 'accurate',
+    response: {
+      summary: `Here is the result for: ${text}`,
+      followUp: 'Would you like to drill down further or change the visualization?',
+      sql: ordersSql,
+      chartYAxisLabel: 'Value',
+      chartXAxisLabel: 'Category',
+      chartData: [
+        { label: 'A', value: 30 + i * 3 },
+        { label: 'B', value: 25 + i * 2 },
+        { label: 'C', value: 18 + i },
+      ],
+    },
+  }));
+}
