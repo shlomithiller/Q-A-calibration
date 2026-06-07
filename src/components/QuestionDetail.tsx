@@ -9,6 +9,7 @@ import {
   ThumbsDown,
   Check,
   Warning,
+  VerifiedCheck,
 } from './Icons';
 import { QueryPanel } from './QueryPanel';
 import { ChartPreview } from './ChartPreview';
@@ -20,6 +21,8 @@ export interface QuestionDetailProps {
   saving: Classification | null;
   onBack: () => void;
   reEvaluating?: boolean;
+  verified?: boolean;
+  fromTest?: boolean;
 }
 
 type RightTab = 'sources' | 'query';
@@ -30,6 +33,8 @@ export function QuestionDetail({
   saving,
   onBack,
   reEvaluating,
+  verified,
+  fromTest,
 }: QuestionDetailProps) {
   const [rightTab, setRightTab] = useState<RightTab>('query');
 
@@ -56,8 +61,13 @@ export function QuestionDetail({
           >
             <ArrowLeft size={14} />
           </button>
+          {question.classification === 'accurate' && verified && (
+            <VerifiedCheck size={20} className="title-verified-badge" />
+          )}
           <h2 className="question-title">{question.text}</h2>
-          <button className="btn-pill-outline">Rerun</button>
+          <button className="btn-pill-outline">
+            {question.classification === 'new' ? 'Re-run' : 'Test Question'}
+          </button>
           <button
             className="icon-btn-bordered"
             aria-label="More actions"
@@ -97,11 +107,28 @@ export function QuestionDetail({
         </div>
       </div>
 
-      <div className={question.classification === 'regression' ? 'regression-card-wrapper' : 'evaluation-card-wrapper'}>
+      <div className={question.classification === 'regression' ? 'regression-card-wrapper' : question.classification === 'accurate' && fromTest ? 'passed-card-wrapper' : question.classification === 'accurate' ? 'snapshot-card-wrapper' : 'evaluation-card-wrapper'}>
         {question.classification === 'regression' && (
           <div className="regression-scoped-notification">
             <Warning size={16} />
             <span>This answer was previously classified as Accurate but has failed at 4/12/2026 05:30 PM during regression testing.</span>
+          </div>
+        )}
+        {question.classification === 'accurate' && fromTest && (
+          <div className="passed-notification">
+            <div className="passed-notification-left">
+              <Check size={14} />
+              <span>Passed regression testing at 4/12/2026 05:30 PM. It remains classified as Accurate.</span>
+            </div>
+          </div>
+        )}
+        {question.classification === 'accurate' && !fromTest && (
+          <div className="snapshot-notification">
+            <div className="snapshot-notification-left">
+              <span className="snapshot-notification-icon">i</span>
+              <span>Viewing a past response snapshot from 4/12/2026 05:30 PM. Data may no longer be current.</span>
+            </div>
+            <button className="snapshot-notification-link">Test Question</button>
           </div>
         )}
       <div className="evaluation-card">

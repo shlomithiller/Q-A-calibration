@@ -13,6 +13,7 @@ import {
   ChevronRight,
   SparkleSingle,
   Warning,
+  VerifiedCheck,
 } from './Icons';
 
 export type TabKey = 'triage' | 'golden';
@@ -62,7 +63,7 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
         <h1 className="workbench-page-title">All Questions</h1>
         <div className="workbench-metrics">
           <div className="wb-metric-card">
-            <span className="wb-metric-label">Golden Data Set</span>
+            <span className="wb-metric-label">Golden Dataset</span>
             <span className="wb-metric-value">{goldenCount} questions</span>
           </div>
           <div className="wb-metric-card">
@@ -72,7 +73,7 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
             </span>
           </div>
           <div className="wb-metric-card">
-            <span className="wb-metric-label">Overall Health</span>
+            <span className="wb-metric-label">Overall Accuracy</span>
             <span className={`wb-metric-value ${overallHealth < 90 ? 'wb-metric-warn' : overallHealth === 100 ? 'wb-metric-success' : ''}`}>
               {overallHealth}%
             </span>
@@ -90,9 +91,19 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
           className={`workbench-tab ${tab === 'golden' ? 'active' : ''}`}
           onClick={() => setTab('golden')}
         >
-          Golden Data Set ({goldenCount})
+          Golden Dataset ({goldenCount})
         </button>
       </div>
+
+      {tab === 'golden' && regressionCount > 0 && (
+        <div className="workbench-regression-alert">
+          <Warning size={16} />
+          <span>{regressionCount} question{regressionCount > 1 ? 's' : ''} failed regression testing. Calibrate the model to resolve.</span>
+          <button className="workbench-regression-link" onClick={() => filtered.find(q => q.classification === 'regression') && onOpenQuestion(filtered.find(q => q.classification === 'regression')!.id)}>
+            Calibrate
+          </button>
+        </div>
+      )}
 
       <div className="workbench-card">
       <div className="workbench-toolbar">
@@ -154,16 +165,6 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
         </div>
       </div>
 
-      {tab === 'golden' && regressionCount > 0 && (
-        <div className="workbench-regression-alert">
-          <Warning size={16} />
-          <span>{regressionCount} question{regressionCount > 1 ? 's' : ''} failed regression testing. Calibrate the model to resolve.</span>
-          <button className="workbench-regression-link" onClick={() => filtered.find(q => q.classification === 'regression') && onOpenQuestion(filtered.find(q => q.classification === 'regression')!.id)}>
-            Calibrate
-          </button>
-        </div>
-      )}
-
       {tab === 'triage' && filtered.length === 0 ? (
         <div className="workbench-empty-state">
           <img
@@ -173,7 +174,7 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
           />
           <h3 className="done-panel-title">You're all caught up</h3>
           <p className="done-panel-text">
-            Every question in this batch has been classified. Check the Golden Data Set or pick up the next batch.
+            Every question in this batch has been classified. Check the Golden Dataset or pick up the next batch.
           </p>
         </div>
       ) : (
@@ -199,7 +200,7 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
               </tr>
             </thead>
             <tbody>
-              {filtered.map((q) => (
+              {filtered.map((q, idx) => (
                 <tr key={q.id} onClick={() => onOpenQuestion(q.id)}>
                   <td className="col-check" onClick={(e) => e.stopPropagation()}>
                     <input
@@ -210,15 +211,26 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
                     />
                   </td>
                   <td className="col-question">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onOpenQuestion(q.id);
-                      }}
-                    >
-                      {q.text.length > 90 ? q.text.slice(0, 87) + '...' : q.text}
-                    </a>
+                    <span className="col-question-content">
+                      {tab === 'golden' && (
+                        <span className="verified-icon-wrap" data-tooltip={q.classification !== 'regression' && idx % 4 !== 3 ? `Verified by admin · May ${10 + (idx % 18)}, 2026 at 2:${String(10 + idx).padStart(2, '0')} PM` : undefined}>
+                          {q.classification !== 'regression' && idx % 4 !== 3 ? (
+                            <VerifiedCheck size={14} className="verified-icon" />
+                          ) : (
+                            <span className="verified-icon-placeholder" />
+                          )}
+                        </span>
+                      )}
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onOpenQuestion(q.id);
+                        }}
+                      >
+                        {q.text.length > 90 ? q.text.slice(0, 87) + '...' : q.text}
+                      </a>
+                    </span>
                   </td>
                   <td>{q.source}</td>
                   <td>

@@ -10,6 +10,7 @@ import { TestSuitesList } from './components/TestSuitesList';
 import { questions as seedQuestions } from './data/questions';
 import type { Classification, Question } from './data/questions';
 import { CreateTestModal } from './components/CreateTestModal';
+import { DiffModal } from './components/DiffModal';
 import { Close, Check, SparkleSingle } from './components/Icons';
 
 type View =
@@ -46,6 +47,9 @@ export default function App() {
   const [lastTestName, setLastTestName] = useState('');
   const [lastTestQuestionIds, setLastTestQuestionIds] = useState<string[]>([]);
   const [cameFromTest, setCameFromTest] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [testCompleted, setTestCompleted] = useState(false);
+  const [showDiffModal, setShowDiffModal] = useState(false);
 
   const currentQuestion =
     view.kind === 'detail'
@@ -59,8 +63,9 @@ export default function App() {
     setAllDone(false);
     setSelected(q?.classification === 'regression' ? 'inaccurate' : null);
     setSaving(null);
-    setMode(q?.classification === 'regression' ? 'fork-decision' : 'classify');
+    setMode(q?.classification === 'regression' ? 'regression-analysis' : 'classify');
     setCorrection('');
+    setVerified(false);
     const t = setTimeout(() => setLoading(false), 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,7 +124,7 @@ export default function App() {
 
     showToast({
       variant: 'accurate',
-      text: 'Moved to Golden Data Set',
+      text: 'Moved to Golden Dataset',
     });
   };
 
@@ -190,6 +195,7 @@ export default function App() {
     const failIds = new Set(shuffled.slice(0, Math.min(4, shuffled.length)));
     setTestFailedIds(failIds);
     setShowCalibrationPanel(false);
+    setTestCompleted(false);
     setLastTestName(testName);
     setLastTestQuestionIds(questionIds);
 
@@ -238,6 +244,7 @@ export default function App() {
   const handleRetest = () => {
     if (view.kind !== 'regression-test') return;
     const { testName, questionIds } = view;
+    setTestCompleted(false);
     setView({ kind: 'list' });
     setTimeout(() => {
       setView({ kind: 'regression-test', testName, questionIds });
@@ -276,6 +283,8 @@ export default function App() {
           onOpenQuestion={openQuestionFromTest}
           onCalibrate={handleTestCalibrate}
           onRetest={handleRetest}
+          skipAnimation={testCompleted}
+          onComplete={() => setTestCompleted(true)}
         />
       );
     }
@@ -300,6 +309,8 @@ export default function App() {
         saving={saving}
         onBack={handleBackFromDetail}
         reEvaluating={isReEvaluating}
+        verified={verified}
+        fromTest={cameFromTest}
       />
     );
   };
@@ -385,10 +396,10 @@ export default function App() {
             <h3 className="done-panel-title">You're all caught up</h3>
             <p className="done-panel-text">
               Every question in this batch has been classified. Review
-              the Golden Data Set or pick up the next batch.
+              the Golden Dataset or pick up the next batch.
             </p>
             <button className="btn-pill-brand" onClick={() => setView({ kind: 'list', tab: 'golden' })}>
-              View Golden Data Set
+              View Golden Dataset
             </button>
           </div>
         </div>
@@ -400,6 +411,14 @@ export default function App() {
           remainingCount={remainingCount}
           totalCount={initialReviewable.current}
           questionClassification={currentQuestion?.classification}
+          verified={verified}
+          onVerifiedChange={(v) => {
+            setVerified(v);
+            if (v) {
+              showToast({ variant: 'accurate', text: 'Question marked as verified' });
+            }
+          }}
+          fromTest={cameFromTest}
           correction={correction}
           onCorrectionChange={setCorrection}
           onInaccurateClick={handleInaccurateClick}
@@ -410,6 +429,8 @@ export default function App() {
           onBackToNlInput={handleBackToNlInput}
           onBackToFork={handleBackToFork}
           onApplyCalibration={handleApplyCalibration}
+          onFixRegression={() => setMode('fork-decision')}
+          onSeeAnalysis={() => setShowDiffModal(true)}
         />
       )
     ) : undefined;
@@ -430,6 +451,9 @@ export default function App() {
           onClose={() => setShowTestModal(false)}
           onCreate={handleCreateTest}
         />
+      )}
+      {showDiffModal && (
+        <DiffModal onClose={() => setShowDiffModal(false)} />
       )}
       {showRerunDialog && (
         <div className="modal-backdrop" onClick={handleRerunCancel}>

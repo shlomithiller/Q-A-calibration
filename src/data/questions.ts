@@ -41,17 +41,38 @@ const ordersSql = `WITH ranked_products AS (
   FROM
     SEMANTIC_VIEW(
       'sales_extended',
-      DIMENSIONS Goods_Product.Product_Name AS product_name,
+      DIMENSIONS
+        Goods_Product.Product_Name AS product_name,
       MEASURES
         SUM(Opportunity_Product.Total_Price_Amount)
+          AS total_sales_amount,
+      WHERE
+        LOWER(Opportunity.Won) = 'true'
+        AND LOWER(Opportunity.Closed) = 'true'
+        AND Opportunity.Close_Date >=
+          DATE_TRUNC('quarter', CURRENT_DATE)
+          + INTERVAL '3 months'
+        AND Opportunity.Close_Date <
+          DATE_TRUNC('quarter', CURRENT_DATE)
+          + INTERVAL '6 months'
     )
+)
 SELECT
   product_name AS "ProductName__c",
   total_sales_amount AS "TotalSalesAmt__c"
 FROM
   ranked_products
 WHERE
-  rn = 1;`;
+  rn = 1
+ORDER BY
+  total_sales_amount DESC
+LIMIT 25
+OFFSET 0;
+
+-- Validated against production data
+-- Last verified: 04/22/2025
+-- Reviewer: Harry Anderson
+-- Confidence: High`;
 
 const leadConversionSql = `SELECT
   source,

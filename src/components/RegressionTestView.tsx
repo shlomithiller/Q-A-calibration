@@ -10,6 +10,8 @@ interface RegressionTestViewProps {
   onOpenQuestion: (id: string) => void;
   onCalibrate: () => void;
   onRetest: () => void;
+  skipAnimation?: boolean;
+  onComplete?: () => void;
 }
 
 type TestStatus = 'Processing' | 'Passed' | 'Failed' | 'Waiting';
@@ -31,6 +33,8 @@ export function RegressionTestView({
   onOpenQuestion,
   onCalibrate,
   onRetest,
+  skipAnimation,
+  onComplete,
 }: RegressionTestViewProps) {
   const [progress, setProgress] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -59,7 +63,7 @@ export function RegressionTestView({
   }, [questionIdsKey]);
 
   useEffect(() => {
-    if (hasRunRef.current) {
+    if (hasRunRef.current || skipAnimation) {
       setProgress(1);
       setElapsed(TOTAL_DURATION);
       setRows((prev) =>
@@ -68,6 +72,7 @@ export function RegressionTestView({
           status: failedIds.has(row.id) ? 'Failed' as TestStatus : 'Passed' as TestStatus,
         })),
       );
+      hasRunRef.current = true;
       return;
     }
 
@@ -105,6 +110,7 @@ export function RegressionTestView({
         animFrameRef.current = requestAnimationFrame(tick);
       } else {
         hasRunRef.current = true;
+        onComplete?.();
       }
     };
 
@@ -157,7 +163,7 @@ export function RegressionTestView({
           </span>
         </div>
         <div className="rt-metric-card">
-          <span className="rt-metric-label">Test Pass %</span>
+          <span className="rt-metric-label">Overall Accuracy</span>
           <span className={`rt-metric-value ${isComplete && passPercent < 100 ? 'rt-metric-warn' : ''}`}>
             {isComplete ? `${passPercent}%` : '-'}
           </span>
@@ -183,10 +189,7 @@ export function RegressionTestView({
             Regression test for selected questions
           </span>
         </div>
-      </div>
-
-      {!isComplete && (
-        <div className="rt-progress-section">
+        <div className={`rt-meta-progress ${isComplete ? 'rt-meta-progress-done' : ''}`}>
           <div className="rt-progress-labels">
             <span><strong>Processing:</strong> {Math.round(progress * 100)}% ({elapsedSeconds}s elapsed)</span>
             <span>Estimated Remaining: ~{remainingSeconds}s</span>
@@ -198,7 +201,7 @@ export function RegressionTestView({
             />
           </div>
         </div>
-      )}
+      </div>
 
       {isComplete && failedCount > 0 && (
         <div className="rt-scoped-notification">
@@ -207,7 +210,7 @@ export function RegressionTestView({
             <span>{failedCount} question{failedCount > 1 ? 's' : ''} failed the test and marked as regression. Calibrate the model to resolve.</span>
           </div>
           <button className="rt-scoped-notification-link" onClick={onCalibrate}>
-            Calibrate
+            Calibrate this test suite
           </button>
         </div>
       )}

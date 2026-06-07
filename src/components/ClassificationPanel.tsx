@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import type { Classification } from '../data/questions';
-import { Warning, Shield, Check, SparkleSingle, Sparkles, Code, ArrowLeft } from './Icons';
+import { Warning, Shield, Check, SparkleSingle, Sparkles, Code, ArrowLeft, ChevronRight } from './Icons';
 
 export type PanelMode =
   | 'classify'
+  | 'regression-analysis'
   | 'fork-decision'
   | 'nl-input'
   | 'suggesting'
@@ -18,6 +19,9 @@ interface ClassificationPanelProps {
   remainingCount: number;
   totalCount: number;
   questionClassification?: Classification;
+  verified: boolean;
+  onVerifiedChange: (v: boolean) => void;
+  fromTest?: boolean;
   correction: string;
   onCorrectionChange: (next: string) => void;
   onInaccurateClick: () => void;
@@ -28,6 +32,8 @@ interface ClassificationPanelProps {
   onBackToNlInput: () => void;
   onBackToFork: () => void;
   onApplyCalibration: () => void;
+  onFixRegression?: () => void;
+  onSeeAnalysis?: () => void;
 }
 
 export function ClassificationPanel({
@@ -37,6 +43,9 @@ export function ClassificationPanel({
   saving,
   remainingCount,
   totalCount,
+  verified,
+  onVerifiedChange,
+  fromTest,
   correction,
   onCorrectionChange,
   onInaccurateClick,
@@ -47,6 +56,8 @@ export function ClassificationPanel({
   onBackToNlInput,
   onBackToFork,
   onApplyCalibration,
+  onFixRegression,
+  onSeeAnalysis,
 }: ClassificationPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -58,6 +69,7 @@ export function ClassificationPanel({
     }
   }, [mode]);
 
+  const isGolden = questionClassification === 'accurate' || (fromTest && questionClassification === 'accurate');
   const completed = totalCount - remainingCount;
   const progressPct =
     totalCount > 0 ? Math.max(0, Math.min(100, (completed / totalCount) * 100)) : 0;
@@ -66,17 +78,19 @@ export function ClassificationPanel({
     <div className="classification-panel">
       <div className="classification-panel-header">Classification</div>
 
-      <div className="classification-progress-section">
-        <div className="progress-bar">
-          <div
-            className="progress-bar-fill"
-            style={{ width: `${progressPct}%` }}
-          />
+      {questionClassification === 'new' && (
+        <div className="classification-progress-section">
+          <div className="progress-bar">
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="progress-label">
+            <strong>{remainingCount} triage questions</strong> left to review
+          </div>
         </div>
-        <div className="progress-label">
-          <strong>{remainingCount} questions</strong> left to review
-        </div>
-      </div>
+      )}
 
       {mode === 'classify' && (
         <div className="classification-body">
@@ -87,9 +101,9 @@ export function ClassificationPanel({
             <button
               className={`classification-option inaccurate ${
                 selected === 'inaccurate' ? 'selected' : ''
-              }`}
-              onClick={onInaccurateClick}
-              disabled={Boolean(saving)}
+              } ${isGolden ? 'disabled-muted' : ''}`}
+              onClick={isGolden ? undefined : onInaccurateClick}
+              disabled={Boolean(saving) || isGolden}
             >
               <div className="option-icon">
                 <Warning size={16} />
@@ -110,29 +124,71 @@ export function ClassificationPanel({
 
             <button
               className={`classification-option accurate ${
-                selected === 'accurate' ? 'selected' : ''
-              }`}
-              onClick={onAccurateClick}
-              disabled={Boolean(saving)}
+                selected === 'accurate' || isGolden ? 'selected' : ''
+              } ${isGolden ? 'disabled-selected' : ''}`}
+              onClick={isGolden ? undefined : onAccurateClick}
+              disabled={Boolean(saving) || isGolden}
             >
               <div className="option-icon">
-                <Shield size={16} />
+                <Check size={16} />
               </div>
               <div className="option-content">
                 <div className="option-title">Accurate</div>
                 <div className="option-desc">
-                  This response is correct and will be saved to the Golden
-                  Data Set as expected query for future regression tests.
+                  This response is correct and will be saved as expected query for future agent responses.
                 </div>
               </div>
-              {selected === 'accurate' && (
+              {(selected === 'accurate' || isGolden) && (
                 <div className="option-check">
                   <Check size={14} />
                 </div>
               )}
             </button>
           </div>
+
+          {isGolden && (
+            <div className="verification-toggle-section">
+              <div className="verification-toggle-left">
+                <div className="verification-toggle-icon">
+                  <Shield size={16} />
+                </div>
+                <div className="verification-toggle-content">
+                  <div className="verification-toggle-title">Mark as Verified</div>
+                  <div className="verification-toggle-desc">This example will be saved as a verified reference to guide future agent responses.</div>
+                </div>
+              </div>
+              <label className="toggle">
+                <input type="checkbox" checked={verified} onChange={(e) => onVerifiedChange(e.target.checked)} />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+          )}
         </div>
+      )}
+
+      {mode === 'regression-analysis' && (
+        <>
+          <div className="inaccurate-status">
+            <span className="badge-error">Regression</span>
+            <button className="link-button" onClick={onChangeClassification}>Change</button>
+          </div>
+          <div className="classification-body">
+            <div className="ai-analysis-card">
+              <div className="ai-analysis-header">
+                <Sparkles size={14} />
+                <span className="ai-analysis-title">AI Judge Analysis</span>
+              </div>
+              <p className="ai-analysis-body">
+                The test failed due to a logic mismatch. The actual response does not align with your expected query baseline.
+              </p>
+              <button className="btn-pill-outline ai-analysis-btn" onClick={onSeeAnalysis}>See Analysis</button>
+            </div>
+          </div>
+          <div className="classification-actions">
+            <span />
+            <button className="btn-pill-brand" onClick={onFixRegression}>Fix Regression <ChevronRight size={14} /></button>
+          </div>
+        </>
       )}
 
       {mode === 'fork-decision' && (
@@ -141,6 +197,9 @@ export function ClassificationPanel({
             {questionClassification === 'regression'
               ? <span className="badge-error">Regression</span>
               : <span className="badge-warning">Inaccurate</span>}
+            {questionClassification === 'regression' && (
+              <button className="link-button" onClick={onChangeClassification}>Change</button>
+            )}
           </div>
           <div className="classification-body">
             <p className="classification-prompt">

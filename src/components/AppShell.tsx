@@ -1,4 +1,4 @@
-import { Grid, Home, Bell, HelpCircle, ChevronDown, ArrowLeft } from './Icons';
+import { Grid, Home, Bell, AgentAstro, ChevronDown, ArrowLeft } from './Icons';
 
 interface AppShellProps {
   view: 'list' | 'detail' | 'test-suites' | 'regression-test';
@@ -18,43 +18,54 @@ export function AppShell({
   return (
     <div className="app">
       <header className="global-header">
-        <div className="app-launcher">
-          <Grid size={18} />
+        <div className="header-left">
+          <div className="app-launcher">
+            <Grid size={16} />
+          </div>
+          <div className="home-tab">
+            <Home size={20} />
+            <div className="home-tab-indicator" />
+          </div>
         </div>
-        <div className="home-tab">
-          <Home size={18} />
-        </div>
-        <div className="spacer" />
-        <button className="icon-button" aria-label="Help">
-          <HelpCircle size={18} />
-        </button>
-        <button className="icon-button" aria-label="Notifications">
-          <Bell size={18} />
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <div className="avatar">SA</div>
-          <ChevronDown size={14} className="avatar-chevron" />
+        <div className="header-center" />
+        <div className="header-right">
+          <div className="header-controls">
+            <button className="icon-button" aria-label="Agentforce">
+              <AgentAstro size={20} />
+            </button>
+            <button className="icon-button" aria-label="Notifications">
+              <Bell size={20} />
+            </button>
+          </div>
+          <div className="header-user">
+            <img className="avatar" src="/avatars/header-avatar.svg" alt="User" />
+            <ChevronDown size={12} className="avatar-chevron" />
+          </div>
         </div>
       </header>
 
       <div className="app-body">
         <aside className="sidebar">
-          <button className="back-link" onClick={onBackToCalibration}>
-            <ArrowLeft size={16} />
-            <span>Q&amp;A Calibration</span>
-          </button>
+          <div className="sidebar-header">
+            <button className="back-arrow" onClick={onBackToCalibration} aria-label="Back">
+              <ArrowLeft size={16} />
+            </button>
+            <span className="sidebar-title">Q&amp;A Calibration</span>
+          </div>
           <nav className="nav">
             {view === 'regression-test' || view === 'test-suites' ? (
               <>
                 <button className="nav-item" onClick={onBackToCalibration}>All Questions</button>
+                <button className="nav-item active" onClick={onNavigateToTests}>Regression Tests</button>
+                <div className="nav-divider" />
                 <button className="nav-item">Verified Questions</button>
-                <button className="nav-item active">Regression Tests</button>
               </>
             ) : (
               <>
                 <button className="nav-item active">All Questions</button>
-                <button className="nav-item">Verified Questions</button>
                 <button className="nav-item" onClick={onNavigateToTests}>Regression Tests</button>
+                <div className="nav-divider" />
+                <button className="nav-item">Verified Questions</button>
               </>
             )}
           </nav>

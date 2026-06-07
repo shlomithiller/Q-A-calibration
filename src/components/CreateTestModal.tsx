@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Question } from '../data/questions';
-import { Close, Search } from './Icons';
+import { Close, Search, ArrowLeft } from './Icons';
 
 type Step = 'select-questions' | 'configure';
 
@@ -18,6 +18,7 @@ export function CreateTestModal({ questions, onClose, onCreate }: CreateTestModa
   const [search, setSearch] = useState('');
   const [testName, setTestName] = useState('');
   const [testDescription, setTestDescription] = useState('');
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [frequency, setFrequency] = useState(1);
   const [frequencyUnit, setFrequencyUnit] = useState<'day' | 'week' | 'month'>('week');
   const [activeDays, setActiveDays] = useState<Set<number>>(new Set([4]));
@@ -72,7 +73,7 @@ export function CreateTestModal({ questions, onClose, onCreate }: CreateTestModa
         {step === 'select-questions' && (
           <>
             <div className="modal-body">
-              <p className="modal-section-title">Add questions to test</p>
+              <p className="modal-section-title">Add questions from the Golden Dataset to test</p>
               <div className="modal-table-container">
                 <div className="modal-filter-bar">
                   <div className="modal-filters-left">
@@ -163,103 +164,130 @@ export function CreateTestModal({ questions, onClose, onCreate }: CreateTestModa
         {step === 'configure' && (
           <>
             <div className="modal-body">
-              <p className="modal-section-title">Configure test suite</p>
-              <div className="modal-form">
-                <div className="modal-field">
-                  <label className="modal-field-label">Test Name</label>
-                  <input
-                    className="modal-input"
-                    placeholder="e.g. Q4 Revenue Regression Suite"
-                    value={testName}
-                    onChange={(e) => setTestName(e.target.value)}
-                  />
+              <div className="modal-config-card">
+                <div className="modal-config-card-header">
+                  <p className="modal-config-card-title">Test Information</p>
+                  <p className="modal-config-card-subtitle">Enter a test name and enter a description that outlines the purpose of your test.</p>
                 </div>
-                <div className="modal-field">
-                  <label className="modal-field-label">Description</label>
-                  <textarea
-                    className="modal-textarea"
-                    placeholder="Describe the purpose of this test suite..."
-                    value={testDescription}
-                    onChange={(e) => setTestDescription(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                <div className="modal-field">
-                  <label className="modal-field-label">Schedule</label>
-                  <div className="scheduler-section">
-                    <div className="scheduler-row">
-                      <label>Repeat every</label>
-                      <input
-                        type="number"
-                        className="scheduler-number-input"
-                        value={frequency}
-                        min={1}
-                        onChange={(e) => setFrequency(Number(e.target.value))}
-                      />
-                      <select
-                        className="scheduler-frequency-select"
-                        value={frequencyUnit}
-                        onChange={(e) => setFrequencyUnit(e.target.value as 'day' | 'week' | 'month')}
-                      >
-                        <option value="day">day</option>
-                        <option value="week">week</option>
-                        <option value="month">month</option>
-                      </select>
-                    </div>
-                    {frequencyUnit === 'week' && (
-                      <div className="scheduler-row">
-                        <label>Repeat on</label>
-                        <div className="scheduler-days">
-                          {DAYS.map((day, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              className={`scheduler-day ${activeDays.has(idx) ? 'active' : ''}`}
-                              onClick={() => toggleDay(idx)}
-                            >
-                              {day}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <div className="scheduler-row">
-                      <label>Time</label>
-                      <input
-                        type="number"
-                        className="scheduler-number-input"
-                        value={hour}
-                        min={0}
-                        max={23}
-                        onChange={(e) => setHour(Number(e.target.value))}
-                      />
-                      <span className="scheduler-colon">:</span>
-                      <input
-                        type="number"
-                        className="scheduler-number-input"
-                        value={minute.toString().padStart(2, '0')}
-                        min={0}
-                        max={59}
-                        step={5}
-                        onChange={(e) => setMinute(Number(e.target.value))}
-                      />
-                    </div>
+                <div className="modal-config-card-body">
+                  <div className="modal-field">
+                    <label className="modal-field-label">Test Name</label>
+                    <input
+                      className="modal-input"
+                      placeholder="My Batch Test"
+                      value={testName}
+                      onChange={(e) => setTestName(e.target.value)}
+                    />
+                  </div>
+                  <div className="modal-field">
+                    <label className="modal-field-label">Description</label>
+                    <textarea
+                      className="modal-textarea"
+                      placeholder="Enter a description..."
+                      value={testDescription}
+                      onChange={(e) => setTestDescription(e.target.value)}
+                      rows={3}
+                    />
                   </div>
                 </div>
-                <div className="modal-field-info">
-                  {selected.size} question{selected.size !== 1 ? 's' : ''} selected
+              </div>
+
+              <div className="modal-config-card">
+                <div className="modal-config-card-row">
+                  <div className="modal-config-card-header">
+                    <p className="modal-config-card-title">Scheduling</p>
+                    <p className="modal-config-card-subtitle">Automatically run this test on a recurring schedule to catch regressions early.</p>
+                  </div>
+                  <label className="toggle">
+                    <input
+                      type="checkbox"
+                      checked={scheduleEnabled}
+                      onChange={(e) => setScheduleEnabled(e.target.checked)}
+                    />
+                    <span className="toggle-slider" />
+                  </label>
                 </div>
+                {scheduleEnabled && (
+                  <div className="modal-config-card-body">
+                    <div className="scheduler-section">
+                      <div className="scheduler-row">
+                        <label>Repeat every</label>
+                        <input
+                          type="number"
+                          className="scheduler-number-input"
+                          value={frequency}
+                          min={1}
+                          onChange={(e) => setFrequency(Number(e.target.value))}
+                        />
+                        <select
+                          className="scheduler-frequency-select"
+                          value={frequencyUnit}
+                          onChange={(e) => setFrequencyUnit(e.target.value as 'day' | 'week' | 'month')}
+                        >
+                          <option value="day">day</option>
+                          <option value="week">week</option>
+                          <option value="month">month</option>
+                        </select>
+                      </div>
+                      {frequencyUnit === 'week' && (
+                        <div className="scheduler-row">
+                          <label>Repeat on</label>
+                          <div className="scheduler-days">
+                            {DAYS.map((day, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                className={`scheduler-day ${activeDays.has(idx) ? 'active' : ''}`}
+                                onClick={() => toggleDay(idx)}
+                              >
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="scheduler-row">
+                        <label>Time</label>
+                        <input
+                          type="number"
+                          className="scheduler-number-input"
+                          value={hour}
+                          min={0}
+                          max={23}
+                          onChange={(e) => setHour(Number(e.target.value))}
+                        />
+                        <span className="scheduler-colon">:</span>
+                        <input
+                          type="number"
+                          className="scheduler-number-input"
+                          value={minute.toString().padStart(2, '0')}
+                          min={0}
+                          max={59}
+                          step={5}
+                          onChange={(e) => setMinute(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn-pill-outline" onClick={() => setStep('select-questions')}>Back</button>
-              <button
-                className="btn-pill-brand"
-                disabled={testName.trim().length === 0}
-                onClick={handleCreate}
-              >
-                Create
-              </button>
+            <div className="modal-footer modal-footer-split">
+              <div className="modal-footer-left">
+                <button className="btn-pill-outline" onClick={() => setStep('select-questions')}>
+                  <ArrowLeft size={14} /> Back
+                </button>
+              </div>
+              <div className="modal-footer-right">
+                <button className="btn-pill-outline" onClick={onClose}>Cancel</button>
+                <button
+                  className="btn-pill-brand"
+                  disabled={testName.trim().length === 0}
+                  onClick={handleCreate}
+                >
+                  Create
+                </button>
+              </div>
             </div>
           </>
         )}
