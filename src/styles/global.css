@@ -1229,6 +1229,23 @@ a:hover {
   overflow: auto;
 }
 
+.query-inline-editor {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 19px;
+  background: #fff;
+  color: var(--color-on-surface-1);
+  border: none;
+  border-left: 3px solid var(--color-brand, #0250d9);
+  padding: 16px;
+  resize: none;
+  outline: none;
+}
+
 .code-editor .line-numbers {
   padding: var(--space-3) var(--space-2);
   color: var(--color-on-surface-muted);
@@ -2003,8 +2020,9 @@ a:hover {
 .inaccurate-prompt {
   margin: 0;
   font-size: var(--font-size-base);
+  font-weight: 600;
   line-height: 19px;
-  color: var(--color-on-surface-2);
+  color: var(--color-on-surface-1);
 }
 
 .ai-input-wrap {
@@ -3764,4 +3782,628 @@ a:hover {
 .ts-pass-rate-low {
   background: #fdd;
   color: #b60554;
+}
+
+/* ============================== Draft with Einstein section ============================== */
+.einstein-section {
+  border-bottom: 1px solid var(--color-border-1);
+  flex-shrink: 0;
+}
+
+/* When sql-curation mode is active, allow the full panel to scroll */
+.classification-panel:has(.einstein-section) .inaccurate-body {
+  flex: unset;
+  overflow: visible;
+}
+
+.classification-panel:has(.einstein-section) {
+  overflow-y: auto;
+}
+
+.einstein-section-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.einstein-section-header:hover {
+  background: var(--color-surface-2);
+}
+
+.einstein-chevron {
+  color: var(--color-on-surface-2);
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+}
+
+.einstein-chevron.open {
+  transform: rotate(0deg);
+}
+
+/* chevron points right when collapsed */
+.einstein-chevron:not(.open) {
+  transform: rotate(-90deg);
+}
+
+.einstein-section-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-surface-2);
+  line-height: 18px;
+}
+
+.einstein-section-body {
+  padding: 0 var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  animation: fade-in 0.15s ease;
+}
+
+.einstein-instruction {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-surface-2);
+  line-height: 18px;
+}
+
+.einstein-textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-1);
+  border-radius: var(--radius-2);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  color: var(--color-on-surface-2);
+  background: #fff;
+  resize: none;
+}
+
+.einstein-textarea:focus {
+  outline: none;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 2px var(--color-brand-90);
+}
+
+.einstein-textarea:disabled {
+  background: var(--color-surface-2);
+  color: var(--color-on-surface-muted);
+}
+
+.einstein-textarea::placeholder {
+  color: var(--color-on-surface-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.einstein-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.einstein-draft-btn {
+  color: var(--color-brand);
+  border-color: var(--color-brand);
+}
+
+.einstein-draft-btn svg {
+  filter: none;
+}
+
+.einstein-draft-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ============================== AI SQL Prompt ============================== */
+.ai-sql-prompt-section {
+  margin: 0 16px 0;
+  border: 1px solid var(--color-brand-80, #a8c4f5);
+  border-radius: 10px;
+  background: var(--color-brand-97, #f0f5ff);
+  padding: 12px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-sql-prompt-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-brand, #0250d9);
+}
+
+.ai-sql-prompt-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  border: 1px solid var(--color-border, #dde1e9);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: var(--font-family-base);
+  line-height: 1.5;
+  background: #fff;
+  color: var(--color-on-surface-1);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.ai-sql-prompt-textarea:focus {
+  border-color: var(--color-brand, #0250d9);
+}
+
+.ai-sql-prompt-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ai-sql-prompt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ai-sql-prompt-done {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #1d7c4d;
+  font-weight: 500;
+}
+
+.ai-sql-apply-btn {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 5px 12px;
+  height: 28px;
+}
+
+/* ============================== SQL Curation ============================== */
+.sql-curation-copy-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sql-curation-copy-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-surface-2);
+}
+
+.sql-curation-select {
+  height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-2);
+  background: #fff;
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  color: var(--color-on-surface-2);
+  width: 100%;
+}
+
+.sql-curation-select:focus {
+  outline: none;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 2px var(--color-brand-90);
+}
+
+.sql-editor-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: var(--radius-2);
+}
+
+.sql-editor-highlight-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-2);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+  color: transparent;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sql-highlight-mark {
+  background: #fff3b0;
+  color: transparent;
+  border-radius: 2px;
+}
+
+.sql-curation-editor {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 220px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-2);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+  color: var(--color-on-surface-2);
+  background: transparent;
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+
+.sql-curation-editor.has-highlight {
+  background: transparent;
+}
+
+.sql-editor-wrap:not(:has(.sql-editor-highlight-overlay)) .sql-curation-editor {
+  background: #fff;
+}
+
+.sql-curation-editor:focus {
+  outline: none;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 2px var(--color-brand-90);
+}
+
+.sql-validate-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sql-validate-validating {
+  background: var(--color-surface-2);
+  color: var(--color-on-surface-1);
+}
+
+.sql-validate-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  flex-shrink: 0;
+}
+
+.sql-validate-success {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.sql-validate-error {
+  background: #fddde3;
+  color: #b60554;
+}
+
+.sql-validate-error-block {
+  border: 1px solid #f5b8c4;
+  border-radius: 8px;
+  background: #fff8f9;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sql-validate-error-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #b60554;
+}
+
+.sql-validate-error-msg {
+  margin: 0;
+  font-size: 12px;
+  color: #5c0a2e;
+  line-height: 1.5;
+}
+
+.sql-validate-error-example {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.sql-validate-error-example-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+}
+
+.sql-validate-error-example-row code {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.sql-validate-error-example-row.bad code { color: #b60554; }
+.sql-validate-error-example-row.good code { color: #1d7c4d; }
+
+.sql-validate-example-badge {
+  font-family: var(--font-family-base);
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sql-validate-example-badge.bad {
+  background: #fddde3;
+  color: #b60554;
+}
+
+.sql-validate-example-badge.good {
+  background: #d4f0e2;
+  color: #1d7c4d;
+}
+
+.sql-copied-from-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-2);
+  background: var(--color-brand-95);
+  border: 1px solid var(--color-brand-90);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  color: var(--color-on-surface-2);
+  width: fit-content;
+  max-width: 100%;
+  animation: fade-in 0.15s ease;
+}
+
+.sql-copied-from-icon {
+  display: flex;
+  align-items: center;
+  color: var(--color-brand);
+  flex-shrink: 0;
+}
+
+.sql-copied-from-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-on-surface-1);
+}
+
+.sql-copied-from-text strong {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-surface-2);
+}
+
+.sql-copied-from-clear {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--color-on-surface-1);
+  padding: 0 2px;
+  border-radius: 50%;
+}
+
+.sql-copied-from-clear:hover {
+  color: var(--color-on-surface-2);
+  background: var(--color-surface-3);
+}
+
+/* ============================== SQL Curation Accordion ============================== */
+.sql-accordion-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sql-accordion-section {
+  border-bottom: 1px solid var(--color-border-1);
+}
+
+.sql-accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-2);
+  cursor: pointer;
+  text-align: left;
+  gap: var(--space-2);
+}
+
+.sql-accordion-header:hover {
+  background: var(--color-surface-3);
+}
+
+.sql-accordion-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sql-accordion-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-surface-2);
+  line-height: 18px;
+}
+
+.sql-accordion-chevron {
+  color: var(--color-on-surface-1);
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+}
+
+.sql-accordion-chevron.open {
+  transform: rotate(180deg);
+}
+
+.sql-accordion-content {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: #fff;
+  animation: fade-in 0.15s ease;
+}
+
+.sql-section-instruction {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-on-surface-1);
+  line-height: 1.5;
+}
+
+/* Einstein text input */
+.sql-einstein-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-2);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  color: var(--color-on-surface-2);
+  background: #fff;
+  resize: none;
+}
+
+.sql-einstein-input:focus {
+  outline: none;
+  border-color: var(--color-ai-accent);
+  box-shadow: 0 0 0 2px rgba(203, 101, 255, 0.15);
+}
+
+.sql-einstein-input:disabled {
+  background: var(--color-surface-2);
+  color: var(--color-on-surface-muted);
+}
+
+.sql-einstein-input::placeholder {
+  color: var(--color-on-surface-muted);
+}
+
+.sql-einstein-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Badge shown in Manual section header when content is Einstein-generated */
+.sql-einstein-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: #f0f3fc;
+  color: #3a49da;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Highlight the editor when content came from Einstein */
+.sql-curation-editor-einstein {
+  border-color: var(--color-ai-accent-soft);
+  box-shadow: 0 0 0 2px rgba(203, 101, 255, 0.1);
+}
+
+/* SQL inspect preview panel */
+.sql-inspect-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border-1);
+  border-radius: var(--radius-2);
+  background: #fff;
+  overflow: hidden;
+  animation: fade-in 0.15s ease;
+  flex: 1;
+  min-height: 0;
+}
+
+.sql-inspect-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border-1);
+  flex-shrink: 0;
+}
+
+.sql-inspect-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-surface-2);
+}
+
+.sql-inspect-title em {
+  font-style: normal;
+  font-weight: var(--font-weight-regular);
+  color: var(--color-on-surface-1);
+}
+
+.sql-inspect-body {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
+  color: var(--color-on-surface-2);
+  padding: var(--space-3);
+  margin: 0;
+  overflow: auto;
+  flex: 1;
+  white-space: pre;
+  max-height: 220px;
+}
+
+.sql-inspect-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border-1);
+  background: var(--color-surface-2);
+  flex-shrink: 0;
 }

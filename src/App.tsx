@@ -50,6 +50,7 @@ export default function App() {
   const [verified, setVerified] = useState(false);
   const [testCompleted, setTestCompleted] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
+  const [sqlCurationValue, setSqlCurationValue] = useState('');
 
   const currentQuestion =
     view.kind === 'detail'
@@ -152,6 +153,25 @@ export default function App() {
   const handleChooseCalibration = () => {
     setMode('nl-input');
     setCorrection('');
+  };
+
+  const handleChooseSqlCuration = () => {
+    setSqlCurationValue(currentQuestion?.response.sql ?? '');
+    setMode('sql-curation');
+  };
+
+  const handleSqlCurationSave = () => {
+    if (view.kind !== 'detail' || !currentQuestion) return;
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === currentQuestion.id
+          ? { ...q, response: { ...q.response, sql: sqlCurationValue }, classification: 'accurate' as Classification }
+          : q,
+      ),
+    );
+    showToast({ variant: 'accurate', text: 'SQL query saved' });
+    setMode('classify');
+    setSelected(null);
   };
 
   const handleBackToFork = () => {
@@ -431,6 +451,13 @@ export default function App() {
           onApplyCalibration={handleApplyCalibration}
           onFixRegression={() => setMode('fork-decision')}
           onSeeAnalysis={() => setShowDiffModal(true)}
+          onChooseSqlCuration={handleChooseSqlCuration}
+          sqlCurationValue={sqlCurationValue}
+          onSqlCurationChange={setSqlCurationValue}
+          onSqlCurationSave={handleSqlCurationSave}
+          allQuestions={questions
+            .filter((q) => q.classification === 'accurate' && q.id !== currentQuestion?.id)
+            .map((q) => ({ id: q.id, text: q.text, sql: q.response.sql }))}
         />
       )
     ) : undefined;

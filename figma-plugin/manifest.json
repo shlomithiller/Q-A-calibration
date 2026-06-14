@@ -1,0 +1,7 @@
+{
+  "name": "QA Calibration Flows",
+  "id": "qa-calibration-flows-push",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"]
+}
