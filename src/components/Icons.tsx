@@ -193,6 +193,21 @@ export const VerifiedCheck = ({ size = 16, className, ...props }: IconProps) => 
   </svg>
 );
 
+export const Info = (props: IconProps) => (
+  <svg {...base(props)}>
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="16" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12.01" y2="8" />
+  </svg>
+);
+
+export const Send = (props: IconProps) => (
+  <svg {...base(props)}>
+    <line x1="22" y1="2" x2="11" y2="13" />
+    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+  </svg>
+);
+
 export const SparkleSingle = (props: IconProps) => (
   <svg {...base(props)} strokeWidth={0} stroke="none">
     <defs>

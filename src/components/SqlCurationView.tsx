@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, Warning, SparkleSingle, AgentAstro, ChevronLeft, ChevronRight } from './Icons';
-import type { Classification } from '../data/questions';
+import { useState, useRef } from 'react';
+import { ArrowLeft, Check, Warning, ThumbsUp, ThumbsDown, SparkleSingle, ChevronLeft, ChevronRight } from './Icons';
+import type { Classification, Question } from '../data/questions';
 
 // ─── SQL transformation engine ────────────────────────────────────────────────
 function transformSQL(sql: string, instruction: string): { sql: string; explanation: string } {
@@ -96,18 +96,9 @@ function highlightLine(line: string): React.ReactNode {
   });
 }
 
-// ─── Chat message type ────────────────────────────────────────────────────────
-interface ChatMessage {
-  id: number;
-  role: 'user' | 'agent';
-  text: string;
-  isThinking?: boolean;
-}
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface SqlCurationViewProps {
-  questionClassification?: Classification;
-  questionText: string;
+  question: Question;
   sqlValue: string;
   onSqlChange: (v: string) => void;
   onSave: () => void;
@@ -115,50 +106,27 @@ interface SqlCurationViewProps {
 }
 
 export function SqlCurationView({
-  questionClassification,
-  questionText,
+  question,
   sqlValue,
   onSqlChange,
   onSave,
   onBack,
 }: SqlCurationViewProps) {
-  const [chatInput, setChatInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 0, role: 'agent', text: 'Hi! Describe what you want to change in the query and I\'ll update the SQL for you.' },
-  ]);
-  const [idCounter, setIdCounter] = useState(1);
+  const [originalSql] = useState(sqlValue);
   const [sqlBeforeAi, setSqlBeforeAi] = useState<string | null>(null);
   const [highlightLines, setHighlightLines] = useState<number[]>([]);
   const [pendingChanges, setPendingChanges] = useState<{ before: string; after: string }[]>([]);
   const [currentChange, setCurrentChange] = useState(0);
   const [validateState, setValidateState] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleSend = () => {
-    if (!chatInput.trim()) return;
-    const userText = chatInput.trim();
-    const userId = idCounter;
-    const thinkingId = idCounter + 1;
-    setIdCounter(c => c + 3);
-    setChatInput('');
-
-    setMessages(prev => [
-      ...prev,
-      { id: userId, role: 'user', text: userText },
-      { id: thinkingId, role: 'agent', text: '', isThinking: true },
-    ]);
-
+  const handleSend = (userText: string) => {
+    if (!userText.trim()) return;
     const beforeSql = sqlValue;
     setSqlBeforeAi(beforeSql);
 
     setTimeout(() => {
-      const { sql: updated, explanation } = transformSQL(sqlValue, userText);
-
+      const { sql: updated } = transformSQL(sqlValue, userText);
       const oldLines = beforeSql.split('\n');
       const newLines = updated.split('\n');
       const changed: number[] = [];
@@ -170,12 +138,6 @@ export function SqlCurationView({
       setPendingChanges([{ before: beforeSql, after: updated }]);
       setCurrentChange(0);
       if (validateState !== 'idle') setValidateState('idle');
-
-      setMessages(prev => prev.map(m =>
-        m.id === thinkingId
-          ? { ...m, text: explanation, isThinking: false }
-          : m
-      ));
     }, 1200);
   };
 
@@ -183,8 +145,6 @@ export function SqlCurationView({
     setPendingChanges([]);
     setHighlightLines([]);
     setSqlBeforeAi(null);
-    setMessages(prev => [...prev, { id: idCounter, role: 'agent', text: 'Changes accepted.' }]);
-    setIdCounter(c => c + 1);
   };
 
   const handleDeclineChanges = () => {
@@ -192,8 +152,6 @@ export function SqlCurationView({
     setPendingChanges([]);
     setHighlightLines([]);
     setSqlBeforeAi(null);
-    setMessages(prev => [...prev, { id: idCounter, role: 'agent', text: 'Changes declined — query restored.' }]);
-    setIdCounter(c => c + 1);
   };
 
   const handleRevert = () => {
@@ -203,8 +161,6 @@ export function SqlCurationView({
     setHighlightLines([]);
     setPendingChanges([]);
     setValidateState('idle');
-    setMessages(prev => [...prev, { id: idCounter, role: 'agent', text: 'Reverted to the previous query.' }]);
-    setIdCounter(c => c + 1);
   };
 
   const handleValidate = () => {
@@ -220,39 +176,63 @@ export function SqlCurationView({
 
   return (
     <div className="scv-root">
-      {/* ── Top bar ── */}
-      <div className="scv-topbar">
-        <button className="scv-back" onClick={onBack} aria-label="Back">
-          <ArrowLeft size={15} />
-        </button>
-        <div className="scv-topbar-title">
-          <span className="scv-topbar-label">SQL Curation</span>
-          <span className="scv-topbar-sep">·</span>
-          <span className="scv-topbar-question">{questionText.length > 72 ? questionText.slice(0, 69) + '…' : questionText}</span>
+      {/* ── Header ── */}
+      <div className="scv-header">
+        <div className="scv-breadcrumb">
+          <span className="scv-breadcrumb-link" onClick={onBack}>Q&A Calibration</span>
+          <span className="scv-breadcrumb-sep">›</span>
         </div>
-        <div className="scv-topbar-badge">
-          {questionClassification === 'regression'
-            ? <span className="badge-error">Regression</span>
-            : <span className="badge-warning">Inaccurate</span>}
+        <div className="scv-topbar">
+          <button className="scv-back" onClick={onBack} aria-label="Back">
+            <ArrowLeft size={15} />
+          </button>
+          <div className="scv-topbar-title-group">
+            <span className="scv-topbar-question">{question.text}</span>
+            {question.classification === 'regression'
+              ? <span className="badge-error">Regression</span>
+              : <span className="badge-warning scv-badge-inaccurate"><Warning size={12} /> Inaccurate</span>}
+          </div>
+          <div className="scv-topbar-actions">
+            <button
+              className="scv-btn-outline"
+              disabled={!sqlValue.trim() || validateState === 'validating'}
+              onClick={handleValidate}
+            >
+              {validateState === 'validating' ? 'Validating…' : 'Validate'}
+            </button>
+            <button
+              className="scv-btn-brand"
+              disabled={!sqlValue.trim()}
+              onClick={onSave}
+            >
+              Save Query
+            </button>
+          </div>
         </div>
-        <div className="scv-topbar-actions">
-          {sqlBeforeAi && (
-            <button className="scv-btn-outline" onClick={handleRevert}>Revert</button>
-          )}
-          <button
-            className="scv-btn-outline"
-            disabled={!sqlValue.trim() || validateState === 'validating'}
-            onClick={handleValidate}
-          >
-            {validateState === 'validating' ? 'Validating…' : 'Validate'}
-          </button>
-          <button
-            className="scv-btn-brand"
-            disabled={!sqlValue.trim()}
-            onClick={onSave}
-          >
-            Save Query
-          </button>
+        <div className="scv-meta-row">
+          <span className="scv-meta-item">
+            <span className="scv-meta-label">Classified by</span>
+            <span className="scv-meta-value">Samantha Adams</span>
+          </span>
+          <span className="scv-meta-item">
+            <span className="scv-meta-label">Classified at</span>
+            <span className="scv-meta-value">{question.lastModified}</span>
+          </span>
+          <span className="scv-meta-item">
+            <span className="scv-meta-label">Source</span>
+            <span className="scv-meta-value">{question.source}</span>
+          </span>
+          <span className="scv-meta-item">
+            <span className="scv-meta-label">Rating</span>
+            <span className="scv-meta-value scv-meta-rating">
+              <ThumbsUp size={13} /> {question.thumbsUp}
+              <ThumbsDown size={13} /> {question.thumbsDown}
+            </span>
+          </span>
+          <span className="scv-meta-item">
+            <span className="scv-meta-label">Model</span>
+            <span className="scv-meta-value">{question.semanticModel} Model</span>
+          </span>
         </div>
       </div>
 
@@ -302,83 +282,43 @@ export function SqlCurationView({
               spellCheck={false}
               autoComplete="off"
             />
+          </div>
 
-            {/* ── Accept / Decline floating toolbar ── */}
-            {pendingChanges.length > 0 && (
+          {/* ── Review toolbar ── */}
+          {sqlValue !== originalSql && (
+            <div className="scv-review-toolbar-row">
               <div className="scv-review-toolbar">
                 <div className="scv-review-buttons">
-                  <button className="scv-review-btn scv-review-accept" onClick={handleAcceptChanges}>
-                    Accept Changes
+                  <button className="scv-review-btn scv-review-reset" onClick={() => {
+                    onSqlChange(originalSql);
+                    setSqlBeforeAi(null);
+                    setHighlightLines([]);
+                    setPendingChanges([]);
+                    setValidateState('idle');
+                  }}>
+                    Reset
                   </button>
                   <button className="scv-review-btn scv-review-decline" onClick={handleDeclineChanges}>
                     Decline Changes
+                  </button>
+                  <button className="scv-review-btn scv-review-accept" onClick={handleAcceptChanges}>
+                    Accept Changes
                   </button>
                 </div>
                 <div className="scv-review-pages">
                   <button className="scv-review-nav" aria-label="Previous" disabled={currentChange === 0} onClick={() => setCurrentChange(c => Math.max(0, c - 1))}>
                     <ChevronLeft size={14} />
                   </button>
-                  <span className="scv-review-counter">{currentChange + 1} of {pendingChanges.length}</span>
+                  <span className="scv-review-counter">{currentChange + 1} of {Math.max(1, pendingChanges.length)}</span>
                   <button className="scv-review-nav" aria-label="Next" disabled={currentChange >= pendingChanges.length - 1} onClick={() => setCurrentChange(c => Math.min(pendingChanges.length - 1, c + 1))}>
                     <ChevronRight size={14} />
                   </button>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Agent chat panel ── */}
-        <div className="scv-chat-pane">
-          <div className="scv-chat-header">
-            <AgentAstro size={18} className="scv-chat-icon" />
-            <span className="scv-chat-title">Agentforce</span>
-          </div>
-
-          <div className="scv-chat-messages">
-            {messages.map((msg) => (
-              <div key={msg.id} className={`scv-msg scv-msg-${msg.role}`}>
-                {msg.role === 'agent' && (
-                  <div className="scv-msg-avatar">
-                    <AgentAstro size={14} />
-                  </div>
-                )}
-                <div className="scv-msg-bubble">
-                  {msg.isThinking
-                    ? <span className="scv-thinking"><span /><span /><span /></span>
-                    : msg.text}
-                </div>
-              </div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
-
-          <div className="scv-chat-input-area">
-            <textarea
-              className="scv-chat-input"
-              placeholder="Add your question or response..."
-              value={chatInput}
-              rows={2}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-            />
-            <div className="scv-chat-input-footer">
-              <button
-                className="scv-chat-send"
-                disabled={!chatInput.trim()}
-                onClick={handleSend}
-                aria-label="Send"
-              >
-                <SparkleSingle size={14} />
-              </button>
             </div>
-          </div>
+          )}
         </div>
+
       </div>
     </div>
   );

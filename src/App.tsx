@@ -12,6 +12,7 @@ import type { Classification, Question } from './data/questions';
 import { CreateTestModal } from './components/CreateTestModal';
 import { DiffModal } from './components/DiffModal';
 import { Close, Check, SparkleSingle } from './components/Icons';
+import { AgentPanel } from './components/AgentPanel';
 import { SqlCurationView } from './components/SqlCurationView';
 
 type View =
@@ -323,6 +324,17 @@ export default function App() {
       setView({ kind: 'list' });
       return null;
     }
+    if (mode === 'sql-curation') {
+      return (
+        <SqlCurationView
+          question={currentQuestion}
+          sqlValue={sqlCurationValue}
+          onSqlChange={setSqlCurationValue}
+          onSave={handleSqlCurationSave}
+          onBack={handleBackToFork}
+        />
+      );
+    }
     return (
       <QuestionDetail
         question={currentQuestion}
@@ -337,7 +349,62 @@ export default function App() {
   };
 
   const rightPanel =
-    view.kind === 'regression-test' && showCalibrationPanel ? (
+    view.kind === 'detail' && currentQuestion && mode === 'sql-curation' ? (
+      <AgentPanel />
+    ) : view.kind === 'detail' && currentQuestion ? (
+      allDone ? (
+        <div className="classification-panel">
+          <div className="classification-panel-header">Classification</div>
+          <div className="done-panel-state">
+            <img src="/illustrations/all-caught-up.svg" alt="" className="done-panel-illo" />
+            <h3 className="done-panel-title">You're all caught up</h3>
+            <p className="done-panel-text">
+              Every question in this batch has been classified. Review
+              the Golden Dataset or pick up the next batch.
+            </p>
+            <button className="btn-pill-brand" onClick={() => setView({ kind: 'list', tab: 'golden' })}>
+              View Golden Dataset
+            </button>
+          </div>
+        </div>
+      ) : (
+        <ClassificationPanel
+          mode={mode}
+          selected={selected}
+          saving={saving}
+          remainingCount={remainingCount}
+          totalCount={initialReviewable.current}
+          questionClassification={currentQuestion?.classification}
+          verified={verified}
+          onVerifiedChange={(v) => {
+            setVerified(v);
+            if (v) {
+              showToast({ variant: 'accurate', text: 'Question marked as verified' });
+            }
+          }}
+          fromTest={cameFromTest}
+          correction={correction}
+          onCorrectionChange={setCorrection}
+          onInaccurateClick={handleInaccurateClick}
+          onAccurateClick={handleAccurate}
+          onChangeClassification={handleBackToClassify}
+          onChooseCalibration={handleChooseCalibration}
+          onSuggestCalibration={handleSuggestCalibration}
+          onBackToNlInput={handleBackToNlInput}
+          onBackToFork={handleBackToFork}
+          onApplyCalibration={handleApplyCalibration}
+          onFixRegression={() => setMode('fork-decision')}
+          onSeeAnalysis={() => setShowDiffModal(true)}
+          onChooseSqlCuration={handleChooseSqlCuration}
+          sqlCurationValue={sqlCurationValue}
+          onSqlCurationChange={setSqlCurationValue}
+          onSqlCurationSave={handleSqlCurationSave}
+          allQuestions={questions
+            .filter((q) => q.classification === 'accurate' && q.id !== currentQuestion?.id)
+            .map((q) => ({ id: q.id, text: q.text, sql: q.response.sql }))}
+        />
+      )
+    ) : view.kind === 'regression-test' && showCalibrationPanel ? (
       <div className="calibration-side-panel">
         <div className="calibration-side-panel-header">
           <span className="calibration-side-panel-icon">
@@ -404,88 +471,7 @@ export default function App() {
           )}
         </div>
       </div>
-    ) : view.kind === 'detail' && currentQuestion ? (
-      allDone ? (
-        <div className="classification-panel">
-          <div className="classification-panel-header">Classification</div>
-          <div className="done-panel-state">
-            <img
-              src="/illustrations/all-caught-up.svg"
-              alt=""
-              className="done-panel-illo"
-            />
-            <h3 className="done-panel-title">You're all caught up</h3>
-            <p className="done-panel-text">
-              Every question in this batch has been classified. Review
-              the Golden Dataset or pick up the next batch.
-            </p>
-            <button className="btn-pill-brand" onClick={() => setView({ kind: 'list', tab: 'golden' })}>
-              View Golden Dataset
-            </button>
-          </div>
-        </div>
-      ) : (
-        <ClassificationPanel
-          mode={mode}
-          selected={selected}
-          saving={saving}
-          remainingCount={remainingCount}
-          totalCount={initialReviewable.current}
-          questionClassification={currentQuestion?.classification}
-          verified={verified}
-          onVerifiedChange={(v) => {
-            setVerified(v);
-            if (v) {
-              showToast({ variant: 'accurate', text: 'Question marked as verified' });
-            }
-          }}
-          fromTest={cameFromTest}
-          correction={correction}
-          onCorrectionChange={setCorrection}
-          onInaccurateClick={handleInaccurateClick}
-          onAccurateClick={handleAccurate}
-          onChangeClassification={handleBackToClassify}
-          onChooseCalibration={handleChooseCalibration}
-          onSuggestCalibration={handleSuggestCalibration}
-          onBackToNlInput={handleBackToNlInput}
-          onBackToFork={handleBackToFork}
-          onApplyCalibration={handleApplyCalibration}
-          onFixRegression={() => setMode('fork-decision')}
-          onSeeAnalysis={() => setShowDiffModal(true)}
-          onChooseSqlCuration={handleChooseSqlCuration}
-          sqlCurationValue={sqlCurationValue}
-          onSqlCurationChange={setSqlCurationValue}
-          onSqlCurationSave={handleSqlCurationSave}
-          allQuestions={questions
-            .filter((q) => q.classification === 'accurate' && q.id !== currentQuestion?.id)
-            .map((q) => ({ id: q.id, text: q.text, sql: q.response.sql }))}
-        />
-      )
     ) : undefined;
-
-  if (mode === 'sql-curation' && currentQuestion) {
-    return (
-      <>
-        <SqlCurationView
-          questionClassification={currentQuestion.classification}
-          questionText={currentQuestion.text}
-          sqlValue={sqlCurationValue}
-          onSqlChange={setSqlCurationValue}
-          onSave={handleSqlCurationSave}
-          onBack={handleBackToFork}
-        />
-        {toast && (
-          <div className={`toast toast-${toast.variant}`} role="status">
-            <span className="toast-icon" aria-hidden><Check size={14} /></span>
-            <span className="toast-text">{toast.text}</span>
-            <button className="toast-close" aria-label="Dismiss" onClick={() => setToast(null)}>
-              <Close size={14} />
-            </button>
-          </div>
-        )}
-      </>
-    );
-  }
 
   return (
     <>
