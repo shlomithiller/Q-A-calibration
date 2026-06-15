@@ -11,7 +11,6 @@ import {
   ThumbsUp,
   ThumbsDown,
   ChevronRight,
-  SparkleSingle,
   Warning,
   VerifiedCheck,
 } from './Icons';

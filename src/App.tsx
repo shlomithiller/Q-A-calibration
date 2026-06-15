@@ -399,9 +399,6 @@ export default function App() {
           sqlCurationValue={sqlCurationValue}
           onSqlCurationChange={setSqlCurationValue}
           onSqlCurationSave={handleSqlCurationSave}
-          allQuestions={questions
-            .filter((q) => q.classification === 'accurate' && q.id !== currentQuestion?.id)
-            .map((q) => ({ id: q.id, text: q.text, sql: q.response.sql }))}
         />
       )
     ) : view.kind === 'regression-test' && showCalibrationPanel ? (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Classification } from '../data/questions';
-import { Warning, Shield, Check, SparkleSingle, Sparkles, Code, ArrowLeft, ChevronRight } from './Icons';
+import { Warning, Shield, Check, SparkleSingle, Sparkles, Code, ChevronRight } from './Icons';
 
 export type PanelMode =
   | 'classify'
@@ -39,7 +39,6 @@ interface ClassificationPanelProps {
   sqlCurationValue: string;
   onSqlCurationChange: (v: string) => void;
   onSqlCurationSave: () => void;
-  allQuestions: { id: string; text: string; sql: string }[];
 }
 
 export function ClassificationPanel({
@@ -51,7 +50,7 @@ export function ClassificationPanel({
   totalCount,
   verified,
   onVerifiedChange,
-  fromTest,
+  fromTest: _fromTest,
   correction,
   onCorrectionChange,
   onInaccurateClick,
@@ -68,7 +67,6 @@ export function ClassificationPanel({
   sqlCurationValue,
   onSqlCurationChange,
   onSqlCurationSave,
-  allQuestions,
 }: ClassificationPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -80,7 +78,7 @@ export function ClassificationPanel({
     }
   }, [mode]);
 
-  const isGolden = questionClassification === 'accurate' || (fromTest && questionClassification === 'accurate');
+  const isGolden = questionClassification === 'accurate';
   const completed = totalCount - remainingCount;
   const progressPct =
     totalCount > 0 ? Math.max(0, Math.min(100, (completed / totalCount) * 100)) : 0;
@@ -440,7 +438,6 @@ export function ClassificationPanel({
           onSqlCurationChange={onSqlCurationChange}
           onSqlCurationSave={onSqlCurationSave}
           onBackToFork={onBackToFork}
-          allQuestions={allQuestions}
         />
       )}
     </div>
@@ -591,14 +588,12 @@ function SqlCurationPanel({
   onSqlCurationChange,
   onSqlCurationSave,
   onBackToFork,
-  allQuestions,
 }: {
   questionClassification?: Classification;
   sqlCurationValue: string;
   onSqlCurationChange: (v: string) => void;
   onSqlCurationSave: () => void;
   onBackToFork: () => void;
-  allQuestions: { id: string; text: string; sql: string }[];
 }) {
   const [validateState, setValidateState] = useState<ValidateState>('idle');
   const [validateError, setValidateError] = useState('');

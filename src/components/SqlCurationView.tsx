@@ -1,80 +1,6 @@
 import { useState, useRef } from 'react';
-import { ArrowLeft, Check, Warning, ThumbsUp, ThumbsDown, SparkleSingle, ChevronLeft, ChevronRight } from './Icons';
-import type { Classification, Question } from '../data/questions';
-
-// ─── SQL transformation engine ────────────────────────────────────────────────
-function transformSQL(sql: string, instruction: string): { sql: string; explanation: string } {
-  const ins = instruction.toLowerCase().trim();
-  let out = sql;
-  let explanation = '';
-
-  const limitMatch = ins.match(/(?:limit|show|top|only|first)\s+(\d+)/);
-  if (limitMatch) {
-    const n = limitMatch[1];
-    if (/^LIMIT\s+\d+/m.test(out)) out = out.replace(/^(LIMIT\s+)\d+/m, `$1${n}`);
-    else out = out.trimEnd() + `\nLIMIT ${n}`;
-    explanation = `Changed result limit to ${n} rows.`;
-  }
-
-  const regionMatch = ins.match(/(?:filter|only|where|for)\s+(?:the\s+)?(\w+)\s+region/);
-  if (regionMatch) {
-    const region = regionMatch[1].charAt(0).toUpperCase() + regionMatch[1].slice(1);
-    const condition = `Region.Name = '${region}'`;
-    if (/WHERE/i.test(out)) out = out.replace(/WHERE/i, `WHERE ${condition}\n  AND`);
-    else out = out.replace(/ORDER BY/i, `WHERE ${condition}\nORDER BY`);
-    explanation = `Added filter for ${region} region.`;
-  }
-
-  const groupMatch = ins.match(/group\s+by\s+([\w_]+(?:\s*,\s*[\w_]+)*)/);
-  if (groupMatch) {
-    const col = groupMatch[1].trim();
-    if (/GROUP BY/i.test(out)) out = out.replace(/GROUP BY\s+[\w_.]+/i, `GROUP BY ${col}`);
-    else out = out.replace(/ORDER BY/i, `GROUP BY ${col}\nORDER BY`);
-    explanation = `Added GROUP BY ${col}.`;
-  }
-
-  const orderDescMatch = ins.match(/(?:sort|order)\s+by\s+([\w_]+)\s*(descending|desc)/);
-  const orderAscMatch = ins.match(/(?:sort|order)\s+by\s+([\w_]+)/);
-  if (orderDescMatch) {
-    const col = orderDescMatch[1];
-    out = out.replace(/ORDER BY[\s\S]*?((?:\n[A-Z]|\n\n|$))/, `ORDER BY ${col} DESC$1`);
-    explanation = `Changed sort to ${col} descending.`;
-  } else if (orderAscMatch && orderAscMatch[1] && !explanation) {
-    const col = orderAscMatch[1];
-    out = out.replace(/ORDER BY[\s\S]*?((?:\n[A-Z]|\n\n|$))/, `ORDER BY ${col} ASC$1`);
-    explanation = `Changed sort to ${col} ascending.`;
-  }
-
-  const removeColMatch = ins.match(/remove\s+(?:the\s+)?(\w+)\s+(?:column|field)?/);
-  if (removeColMatch) {
-    const col = removeColMatch[1];
-    const re = new RegExp(`[,\\s]*\\b${col}\\b[^,\\n]*(?:,|(?=\\n))`, 'i');
-    out = out.replace(re, '');
-    explanation = `Removed ${col} from the query.`;
-  }
-
-  const addColMatch = ins.match(/add\s+(?:the\s+)?(\w+(?:\.\w+)?)\s+(?:column|field)?/);
-  if (addColMatch) {
-    const col = addColMatch[1];
-    out = out.replace(/^(SELECT\s+)/im, `$1${col},\n  `);
-    explanation = `Added ${col} to SELECT.`;
-  }
-
-  if (/last\s+(month|quarter|year|week)/i.test(ins)) {
-    const period = ins.match(/last\s+(month|quarter|year|week)/i)![1];
-    const trunc = period.toLowerCase();
-    const dateFilter = `close_date >= DATE_TRUNC('${trunc}', CURRENT_DATE) - INTERVAL '1 ${trunc}'`;
-    if (/WHERE/i.test(out)) out = out.replace(/WHERE/i, `WHERE ${dateFilter}\n  AND`);
-    else out = out.replace(/ORDER BY/i, `WHERE ${dateFilter}\nORDER BY`);
-    explanation = `Added date filter for last ${trunc}.`;
-  }
-
-  if (!explanation) {
-    explanation = `No match for: "${instruction}". Try: "limit 10", "filter by West region", "sort by amount descending", "add revenue column".`;
-  }
-
-  return { sql: out, explanation };
-}
+import { ArrowLeft, Check, Warning, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight } from './Icons';
+import type { Question } from '../data/questions';
 
 // ─── Syntax highlighter ───────────────────────────────────────────────────────
 const KEYWORDS = new Set(['WITH','AS','SELECT','FROM','WHERE','ORDER','BY','GROUP','OVER','DESC','ASC','NULLS','LAST','FIRST','CASE','WHEN','THEN','ELSE','END','AND','OR','NOT','IN','IS','NULL','BETWEEN','INTERVAL','HAVING','JOIN','INNER','LEFT','RIGHT','OUTER','ON','INTO','UNION','ALL','DISTINCT','LIMIT','OFFSET']);
@@ -120,27 +46,6 @@ export function SqlCurationView({
   const [validateState, setValidateState] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSend = (userText: string) => {
-    if (!userText.trim()) return;
-    const beforeSql = sqlValue;
-    setSqlBeforeAi(beforeSql);
-
-    setTimeout(() => {
-      const { sql: updated } = transformSQL(sqlValue, userText);
-      const oldLines = beforeSql.split('\n');
-      const newLines = updated.split('\n');
-      const changed: number[] = [];
-      newLines.forEach((line, i) => {
-        if (line !== oldLines[i]) changed.push(i + 1);
-      });
-      setHighlightLines(changed);
-      onSqlChange(updated);
-      setPendingChanges([{ before: beforeSql, after: updated }]);
-      setCurrentChange(0);
-      if (validateState !== 'idle') setValidateState('idle');
-    }, 1200);
-  };
-
   const handleAcceptChanges = () => {
     setPendingChanges([]);
     setHighlightLines([]);
@@ -152,15 +57,6 @@ export function SqlCurationView({
     setPendingChanges([]);
     setHighlightLines([]);
     setSqlBeforeAi(null);
-  };
-
-  const handleRevert = () => {
-    if (!sqlBeforeAi) return;
-    onSqlChange(sqlBeforeAi);
-    setSqlBeforeAi(null);
-    setHighlightLines([]);
-    setPendingChanges([]);
-    setValidateState('idle');
   };
 
   const handleValidate = () => {
