@@ -490,6 +490,99 @@ function diagnoseSQL(sql: string): string {
   if (up.includes('GROUP BY') && !up.includes('SELECT')) return 'GROUP BY requires a SELECT with matching columns.';
   return 'Query could not be validated — check syntax and try again.';
 }
+function transformSQL(sql: string, instruction: string): { sql: string; explanation: string } {
+  const ins = instruction.toLowerCase().trim();
+  let out = sql;
+  let explanation = '';
+
+  // ── LIMIT ──────────────────────────────────────────────────────────────
+  const limitMatch = ins.match(/(?:limit|show|top|only|first)\s+(\d+)/);
+  if (limitMatch) {
+    const n = limitMatch[1];
+    if (/^LIMIT\s+\d+/m.test(out)) {
+      out = out.replace(/^(LIMIT\s+)\d+/m, `$1${n}`);
+    } else {
+      out = out.trimEnd() + `\nLIMIT ${n}`;
+    }
+    explanation = `Changed result limit to ${n} rows.`;
+  }
+
+  // ── FILTER by region ───────────────────────────────────────────────────
+  const regionMatch = ins.match(/(?:filter|only|where|for)\s+(?:the\s+)?(\w+)\s+region/);
+  if (regionMatch) {
+    const region = regionMatch[1].charAt(0).toUpperCase() + regionMatch[1].slice(1);
+    const condition = `Region.Name = '${region}'`;
+    if (/WHERE/i.test(out)) {
+      out = out.replace(/WHERE/i, `WHERE ${condition}\n  AND`);
+    } else {
+      out = out.replace(/ORDER BY/i, `WHERE ${condition}\nORDER BY`);
+    }
+    explanation = `Added filter for ${region} region.`;
+  }
+
+  // ── GROUP BY ───────────────────────────────────────────────────────────
+  const groupMatch = ins.match(/group\s+by\s+([\w_]+(?:\s*,\s*[\w_]+)*)/);
+  if (groupMatch) {
+    const col = groupMatch[1].trim();
+    if (/GROUP BY/i.test(out)) {
+      out = out.replace(/GROUP BY\s+[\w_.]+/i, `GROUP BY ${col}`);
+    } else {
+      out = out.replace(/ORDER BY/i, `GROUP BY ${col}\nORDER BY`);
+    }
+    explanation = `Added GROUP BY ${col}.`;
+  }
+
+  // ── ORDER / SORT ───────────────────────────────────────────────────────
+  const orderAscMatch = ins.match(/sort|order\s+by\s+([\w_]+)\s*(ascending|asc)?/);
+  const orderDescMatch = ins.match(/sort|order\s+by\s+([\w_]+)\s*(descending|desc)/);
+  if (orderDescMatch) {
+    const col = orderDescMatch[1];
+    out = out.replace(/ORDER BY[\s\S]*?((?:\n[A-Z]|\n\n|$))/, `ORDER BY ${col} DESC$1`);
+    explanation = `Changed sort to ${col} descending.`;
+  } else if (orderAscMatch && orderAscMatch[1]) {
+    const col = orderAscMatch[1];
+    out = out.replace(/ORDER BY[\s\S]*?((?:\n[A-Z]|\n\n|$))/, `ORDER BY ${col} ASC$1`);
+    explanation = `Changed sort to ${col} ascending.`;
+  }
+
+  // ── REMOVE a column ────────────────────────────────────────────────────
+  const removeColMatch = ins.match(/remove\s+(?:the\s+)?(\w+)\s+(?:column|field)?/);
+  if (removeColMatch) {
+    const col = removeColMatch[1];
+    const re = new RegExp(`[,\\s]*\\b${col}\\b[^,\\n]*(?:,|(?=\\n))`, 'i');
+    out = out.replace(re, '');
+    explanation = `Removed ${col} from the query.`;
+  }
+
+  // ── ADD column ─────────────────────────────────────────────────────────
+  const addColMatch = ins.match(/add\s+(?:the\s+)?(\w+(?:\.\w+)?)\s+(?:column|field)?/);
+  if (addColMatch) {
+    const col = addColMatch[1];
+    out = out.replace(/^(SELECT\s+)/im, `$1${col},\n  `);
+    explanation = `Added ${col} to SELECT.`;
+  }
+
+  // ── DATE RANGE ─────────────────────────────────────────────────────────
+  if (/last\s+(month|quarter|year|week)/i.test(ins)) {
+    const period = ins.match(/last\s+(month|quarter|year|week)/i)![1].toUpperCase();
+    const trunc = period === 'WEEK' ? 'week' : period === 'MONTH' ? 'month' : period === 'YEAR' ? 'year' : 'quarter';
+    const dateFilter = `close_date >= DATE_TRUNC('${trunc}', CURRENT_DATE) - INTERVAL '1 ${trunc}'`;
+    if (/WHERE/i.test(out)) {
+      out = out.replace(/WHERE/i, `WHERE ${dateFilter}\n  AND`);
+    } else {
+      out = out.replace(/ORDER BY/i, `WHERE ${dateFilter}\nORDER BY`);
+    }
+    explanation = `Added date filter for last ${trunc}.`;
+  }
+
+  // ── fallback: no rule matched ──────────────────────────────────────────
+  if (!explanation) {
+    explanation = `No matching transformation found for: "${instruction}". Try phrases like "limit 10", "filter by West region", "group by product_name", "sort by amount descending".`;
+  }
+
+  return { sql: out, explanation };
+}
+
 type AiDraftState = 'idle' | 'drafting' | 'done';
 
 function SqlCurationPanel({
@@ -509,11 +602,11 @@ function SqlCurationPanel({
 }) {
   const [validateState, setValidateState] = useState<ValidateState>('idle');
   const [validateError, setValidateError] = useState('');
-  const [copiedFrom, setCopiedFrom] = useState<{ id: string; text: string } | null>(null);
-  const [preview, setPreview] = useState<{ id: string; text: string; sql: string } | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiDraftState, setAiDraftState] = useState<AiDraftState>('idle');
+  const [aiExplanation, setAiExplanation] = useState('');
   const [highlightRange, setHighlightRange] = useState<{ start: number; end: number } | null>(null);
+  const [sqlBeforeAi, setSqlBeforeAi] = useState<string | null>(null);
 
   const handleValidate = () => {
     setValidateState('validating');
@@ -533,28 +626,35 @@ function SqlCurationPanel({
   const handleChange = (v: string) => {
     if (validateState !== 'idle') setValidateState('idle');
     if (highlightRange) setHighlightRange(null);
+    if (sqlBeforeAi) setSqlBeforeAi(null);
     onSqlCurationChange(v);
   };
 
-  const handleInsertPreview = () => {
-    if (!preview) return;
+  const handleAiRevert = () => {
+    if (!sqlBeforeAi) return;
+    onSqlCurationChange(sqlBeforeAi);
+    setSqlBeforeAi(null);
+    setAiDraftState('idle');
+    setAiExplanation('');
+    setHighlightRange(null);
     if (validateState !== 'idle') setValidateState('idle');
-    onSqlCurationChange(preview.sql);
-    setCopiedFrom({ id: preview.id, text: preview.text });
-    setPreview(null);
   };
 
   const handleAiApply = () => {
     if (!aiPrompt.trim()) return;
+    setSqlBeforeAi(sqlCurationValue);
     setAiDraftState('drafting');
+    setAiExplanation('');
     setTimeout(() => {
-      const inserted = `-- AI: "${aiPrompt.trim()}"\n`;
-      const updated = inserted + sqlCurationValue;
+      const { sql: updated, explanation } = transformSQL(sqlCurationValue, aiPrompt.trim());
+      const addedChars = updated.length - sqlCurationValue.length;
       onSqlCurationChange(updated);
-      setHighlightRange({ start: 0, end: inserted.length });
+      if (addedChars > 0) setHighlightRange({ start: 0, end: addedChars });
+      else setHighlightRange(null);
+      setAiExplanation(explanation);
       if (validateState !== 'idle') setValidateState('idle');
       setAiDraftState('done');
-    }, 1600);
+    }, 1200);
   };
 
   return (
@@ -574,31 +674,43 @@ function SqlCurationPanel({
         <div className="ai-sql-prompt-input-row">
           <textarea
             className="ai-sql-prompt-textarea"
-            placeholder="e.g. Filter by West region only, add a GROUP BY clause..."
+            placeholder="e.g. Show only West region, limit to 10 rows, sort by amount descending, add product_name column..."
             value={aiPrompt}
             rows={2}
             disabled={aiDraftState === 'drafting'}
             onChange={(e) => {
               setAiPrompt(e.target.value);
-              if (aiDraftState === 'done') setAiDraftState('idle');
+              if (aiDraftState === 'done') { setAiDraftState('idle'); setAiExplanation(''); }
             }}
           />
         </div>
         <div className="ai-sql-prompt-footer">
-          {aiDraftState === 'done' && (
-            <span className="ai-sql-prompt-done">
-              <Check size={12} /> Applied — review the query below
+          {aiDraftState === 'done' && aiExplanation && (
+            <span className={`ai-sql-prompt-done ${aiExplanation.startsWith('No matching') ? 'warn' : ''}`}>
+              {aiExplanation.startsWith('No matching')
+                ? <><Warning size={12} /> {aiExplanation}</>
+                : <><Check size={12} /> {aiExplanation}</>}
             </span>
           )}
-          <button
-            className="btn-pill-outline btn-with-icon ai-sql-apply-btn"
-            disabled={!aiPrompt.trim() || aiDraftState === 'drafting'}
-            onClick={handleAiApply}
-          >
-            {aiDraftState === 'drafting'
-              ? <><div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Applying…</>
-              : <><SparkleSingle size={13} /> Apply</>}
-          </button>
+          <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+            {sqlBeforeAi && (
+              <button
+                className="btn-pill-outline ai-sql-apply-btn"
+                onClick={handleAiRevert}
+              >
+                Revert
+              </button>
+            )}
+            <button
+              className="btn-pill-outline btn-with-icon ai-sql-apply-btn"
+              disabled={!aiPrompt.trim() || aiDraftState === 'drafting'}
+              onClick={handleAiApply}
+            >
+              {aiDraftState === 'drafting'
+                ? <><div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Applying…</>
+                : <><SparkleSingle size={13} /> Apply</>}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -622,49 +734,6 @@ function SqlCurationPanel({
           />
         </div>
 
-        <div className="sql-curation-copy-row">
-          <label className="sql-curation-copy-label">Copy query from:</label>
-          <select
-            className="sql-curation-select"
-            value=""
-            onChange={(e) => {
-              const q = allQuestions.find((q) => q.id === e.target.value);
-              if (q) setPreview(q);
-            }}
-          >
-            <option value="" disabled>Select a question...</option>
-            {allQuestions.map((q) => (
-              <option key={q.id} value={q.id}>
-                {q.text.length > 60 ? q.text.slice(0, 57) + '...' : q.text}
-              </option>
-            ))}
-          </select>
-          {copiedFrom && !preview && (
-            <div className="sql-copied-from-chip">
-              <span className="sql-copied-from-icon"><Check size={11} /></span>
-              <span className="sql-copied-from-text">
-                Copied from: <strong>{copiedFrom.text.length > 44 ? copiedFrom.text.slice(0, 41) + '...' : copiedFrom.text}</strong>
-              </span>
-              <button className="sql-copied-from-clear" aria-label="Clear" onClick={() => setCopiedFrom(null)}>×</button>
-            </div>
-          )}
-        </div>
-
-        {preview ? (
-          <div className="sql-inspect-panel">
-            <div className="sql-inspect-header">
-              <span className="sql-inspect-title">
-                <Code size={13} />
-                Inspecting: <em>{preview.text.length > 48 ? preview.text.slice(0, 45) + '...' : preview.text}</em>
-              </span>
-            </div>
-            <pre className="sql-inspect-body">{preview.sql}</pre>
-            <div className="sql-inspect-actions">
-              <button className="btn-pill-outline" onClick={() => setPreview(null)}>Cancel</button>
-              <button className="btn-pill-brand" onClick={handleInsertPreview}>Insert Query</button>
-            </div>
-          </div>
-        ) : null}
 
         {validateState === 'validating' && (
           <div className="sql-validate-status sql-validate-validating">
@@ -701,24 +770,22 @@ function SqlCurationPanel({
 
       <div className="classification-actions">
         <button className="btn-pill-outline" onClick={onBackToFork}>Back</button>
-        {!preview && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className="btn-pill-outline"
-              disabled={sqlCurationValue.trim().length === 0 || validateState === 'validating'}
-              onClick={handleValidate}
-            >
-              Validate
-            </button>
-            <button
-              className="btn-pill-brand"
-              disabled={sqlCurationValue.trim().length === 0 || validateState === 'validating'}
-              onClick={onSqlCurationSave}
-            >
-              Save Query
-            </button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="btn-pill-outline"
+            disabled={sqlCurationValue.trim().length === 0 || validateState === 'validating'}
+            onClick={handleValidate}
+          >
+            Validate
+          </button>
+          <button
+            className="btn-pill-brand"
+            disabled={sqlCurationValue.trim().length === 0 || validateState === 'validating'}
+            onClick={onSqlCurationSave}
+          >
+            Save Query
+          </button>
+        </div>
       </div>
     </>
   );

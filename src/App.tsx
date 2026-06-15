@@ -12,6 +12,7 @@ import type { Classification, Question } from './data/questions';
 import { CreateTestModal } from './components/CreateTestModal';
 import { DiffModal } from './components/DiffModal';
 import { Close, Check, SparkleSingle } from './components/Icons';
+import { SqlCurationView } from './components/SqlCurationView';
 
 type View =
   | { kind: 'list'; tab?: TabKey }
@@ -461,6 +462,30 @@ export default function App() {
         />
       )
     ) : undefined;
+
+  if (mode === 'sql-curation' && currentQuestion) {
+    return (
+      <>
+        <SqlCurationView
+          questionClassification={currentQuestion.classification}
+          questionText={currentQuestion.text}
+          sqlValue={sqlCurationValue}
+          onSqlChange={setSqlCurationValue}
+          onSave={handleSqlCurationSave}
+          onBack={handleBackToFork}
+        />
+        {toast && (
+          <div className={`toast toast-${toast.variant}`} role="status">
+            <span className="toast-icon" aria-hidden><Check size={14} /></span>
+            <span className="toast-text">{toast.text}</span>
+            <button className="toast-close" aria-label="Dismiss" onClick={() => setToast(null)}>
+              <Close size={14} />
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
