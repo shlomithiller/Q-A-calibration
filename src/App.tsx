@@ -350,7 +350,7 @@ export default function App() {
 
   const rightPanel =
     view.kind === 'detail' && currentQuestion && mode === 'sql-curation' ? (
-      <AgentPanel />
+      <AgentPanel sqlValue={sqlCurationValue} onSqlChange={setSqlCurationValue} />
     ) : view.kind === 'detail' && currentQuestion ? (
       allDone ? (
         <div className="classification-panel">
