@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Play, Undo, Redo, SparkleSingle } from './Icons';
+import { ArrowLeft, ChevronLeft, ChevronRight, Play, Undo, Redo, SparkleSingle, Shield, Check, Warning } from './Icons';
 import type { Question } from '../data/questions';
 
 // ─── Syntax highlighter ──────────────────────────────────────────────────────
@@ -64,10 +64,52 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
   const [pendingChanges, setPendingChanges] = useState<{ before: string; after: string }[]>([]);
   const [currentChange, setCurrentChange] = useState(0);
 
+  // Undo/redo history
+  const historyRef = useRef<string[]>([sqlValue]);
+  const [histIdx, setHistIdx] = useState(0);
+
+  const pushHistory = (newSql: string) => {
+    const stack = historyRef.current.slice(0, histIdx + 1);
+    stack.push(newSql);
+    historyRef.current = stack;
+    setHistIdx(stack.length - 1);
+    onSqlChange(newSql);
+  };
+
+  const handleUndo = () => {
+    if (histIdx <= 0) return;
+    const newIdx = histIdx - 1;
+    setHistIdx(newIdx);
+    onSqlChange(historyRef.current[newIdx]);
+    if (highlightLines.length) setHighlightLines([]);
+  };
+
+  const handleRedo = () => {
+    if (histIdx >= historyRef.current.length - 1) return;
+    const newIdx = histIdx + 1;
+    setHistIdx(newIdx);
+    onSqlChange(historyRef.current[newIdx]);
+    if (highlightLines.length) setHighlightLines([]);
+  };
+
   // Draft with Einstein
-  const [draftExpanded, setDraftExpanded] = useState(true);
+  const [draftExpanded, setDraftExpanded] = useState(false);
   const [draftText, setDraftText] = useState('');
   const [draftState, setDraftState] = useState<'idle' | 'drafting'>('idle');
+
+  // Validate state
+  const [validateState, setValidateState] = useState<'idle' | 'validating' | 'pass' | 'fail'>('idle');
+
+  const handleValidate = () => {
+    setValidateState('validating');
+    setTimeout(() => {
+      const upper = sqlValue.toUpperCase();
+      const hasSelect = upper.includes('SELECT');
+      const hasFrom = upper.includes('FROM') || upper.includes('SEMANTIC_VIEW');
+      const balanced = (sqlValue.match(/\(/g) || []).length === (sqlValue.match(/\)/g) || []).length;
+      setValidateState(hasSelect && hasFrom && balanced ? 'pass' : 'fail');
+    }, 1000);
+  };
 
   // Preview state
   const [previewState, setPreviewState] = useState<'idle' | 'running' | 'done'>('idle');
@@ -76,6 +118,7 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
   const [lastRunSql, setLastRunSql] = useState<string>('');
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Accept: keep current SQL as the new baseline, dismiss toolbar
   const handleAcceptChanges = () => {
@@ -157,7 +200,7 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
       }
 
       setSqlBeforeAi(sqlValue);
-      onSqlChange(newSql);
+      pushHistory(newSql);
       setDraftText('');
       setDraftState('idle');
 
@@ -244,22 +287,39 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
 
           {/* ── Workbench header row ── */}
           <div className="scv-workbench-header">
-            <span className="scv-workbench-title">Workbench</span>
-            <div className="scv-workbench-header-actions">
-              <button className="scv-icon-btn-circle" aria-label="Undo" title="Undo">
-                <Undo size={13} />
-              </button>
-              <button className="scv-icon-btn-circle" aria-label="Redo" title="Redo">
-                <Redo size={13} />
-              </button>
-              <button
-                className={`scv-test-query-btn${previewState === 'running' ? ' scv-test-query-running' : ''}`}
-                disabled={!sqlValue.trim() || previewState === 'running'}
-                onClick={handleTestQuery}
-              >
-                <Play size={11} />
-                {previewState === 'running' ? 'Running…' : 'Test Query'}
-              </button>
+            <div className="scv-workbench-left">
+              <span className="scv-workbench-title">Workbench</span>
+              <div className="scv-workbench-header-actions">
+                <button className="scv-icon-btn-circle" aria-label="Undo" title="Undo" disabled={histIdx <= 0} onClick={handleUndo}>
+                  <Undo size={13} />
+                </button>
+                <button className="scv-icon-btn-circle" aria-label="Redo" title="Redo" disabled={histIdx >= historyRef.current.length - 1} onClick={handleRedo}>
+                  <Redo size={13} />
+                </button>
+                <button
+                  className={`scv-validate-btn${validateState === 'pass' ? ' scv-validate-pass' : validateState === 'fail' ? ' scv-validate-fail' : ''}`}
+                  disabled={!sqlValue.trim() || validateState === 'validating'}
+                  onClick={handleValidate}
+                >
+                  {validateState === 'validating' ? (
+                    <><div className="spinner" style={{ width: 11, height: 11, borderWidth: 2 }} /> Validating…</>
+                  ) : validateState === 'pass' ? (
+                    <><Check size={12} /> Valid</>
+                  ) : validateState === 'fail' ? (
+                    <><Warning size={12} /> Invalid</>
+                  ) : (
+                    <><Shield size={12} /> Validate</>
+                  )}
+                </button>
+                <button
+                  className={`scv-test-query-btn${previewState === 'running' ? ' scv-test-query-running' : ''}`}
+                  disabled={!sqlValue.trim() || previewState === 'running'}
+                  onClick={handleTestQuery}
+                >
+                  <Play size={11} />
+                  {previewState === 'running' ? 'Running…' : 'Test Query'}
+                </button>
+              </div>
             </div>
 
             {/* Preview header — right half of the same row */}
@@ -269,7 +329,7 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
                 <span className="scv-preview-meta">Last run on {lastRunTime}</span>
               )}
               {previewStale && (
-                <span className="scv-preview-stale">Query changed — re-run to update</span>
+                <span className="scv-preview-stale">Query changed — test query to update</span>
               )}
               {previewState === 'done' && !previewStale && (
                 <span className="scv-preview-counts">{totalFields} fields {totalRows.toLocaleString()} rows</span>
@@ -302,8 +362,12 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
                   className="scv-textarea"
                   value={sqlValue}
                   onChange={(e) => {
-                    onSqlChange(e.target.value);
+                    const val = e.target.value;
+                    onSqlChange(val);
                     if (highlightLines.length) setHighlightLines([]);
+                    if (validateState !== 'idle') setValidateState('idle');
+                    if (historyTimerRef.current) clearTimeout(historyTimerRef.current);
+                    historyTimerRef.current = setTimeout(() => pushHistory(val), 500);
                   }}
                   spellCheck={false}
                   autoComplete="off"
