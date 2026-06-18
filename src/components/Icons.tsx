@@ -208,6 +208,26 @@ export const Send = (props: IconProps) => (
   </svg>
 );
 
+export const Play = (props: IconProps) => (
+  <svg {...base(props)} fill="currentColor" stroke="none">
+    <polygon points="5 3 19 12 5 21 5 3" />
+  </svg>
+);
+
+export const Undo = (props: IconProps) => (
+  <svg {...base(props)}>
+    <polyline points="9 14 4 9 9 4" />
+    <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+  </svg>
+);
+
+export const Redo = (props: IconProps) => (
+  <svg {...base(props)}>
+    <polyline points="15 14 20 9 15 4" />
+    <path d="M4 20v-7a4 4 0 0 1 4-4h12" />
+  </svg>
+);
+
 export const SparkleSingle = (props: IconProps) => (
   <svg {...base(props)} strokeWidth={0} stroke="none">
     <defs>

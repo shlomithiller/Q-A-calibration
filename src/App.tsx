@@ -12,7 +12,6 @@ import type { Classification, Question } from './data/questions';
 import { CreateTestModal } from './components/CreateTestModal';
 import { DiffModal } from './components/DiffModal';
 import { Close, Check, SparkleSingle } from './components/Icons';
-import { AgentPanel } from './components/AgentPanel';
 import { SqlCurationView } from './components/SqlCurationView';
 
 type View =
@@ -349,9 +348,8 @@ export default function App() {
   };
 
   const rightPanel =
-    view.kind === 'detail' && currentQuestion && mode === 'sql-curation' ? (
-      <AgentPanel sqlValue={sqlCurationValue} onSqlChange={setSqlCurationValue} />
-    ) : view.kind === 'detail' && currentQuestion ? (
+    view.kind === 'detail' && currentQuestion && mode === 'sql-curation' ? undefined
+    : view.kind === 'detail' && currentQuestion ? (
       allDone ? (
         <div className="classification-panel">
           <div className="classification-panel-header">Classification</div>
