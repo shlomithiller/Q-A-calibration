@@ -379,15 +379,6 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
                 <div className="scv-review-toolbar-row">
                   <div className="scv-review-toolbar">
                     <div className="scv-review-buttons">
-                      <button className="scv-review-btn scv-review-reset" onClick={() => {
-                        onSqlChange(originalSql);
-                        setSqlBeforeAi(null);
-                        setHighlightLines([]);
-                        setPendingChanges([]);
-                        setCurrentChange(0);
-                      }}>
-                        Reset
-                      </button>
                       <button className="scv-review-btn scv-review-decline" onClick={handleDeclineChanges}>
                         Decline Changes
                       </button>
