@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Play, Undo, Redo, SparkleSingle, Shield, Check, Warning } from './Icons';
+import { ChartPreview } from './ChartPreview';
 import type { Question } from '../data/questions';
 
 // ─── Syntax highlighter ──────────────────────────────────────────────────────
@@ -55,9 +56,10 @@ interface SqlCurationViewProps {
   onSqlChange: (v: string) => void;
   onSave: () => void;
   onBack: () => void;
+  hasVQ?: boolean;
 }
 
-export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBack }: SqlCurationViewProps) {
+export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBack, hasVQ = false }: SqlCurationViewProps) {
   const [originalSql] = useState(sqlValue);
   const [sqlBeforeAi, setSqlBeforeAi] = useState<string | null>(null);
   const [highlightLines, setHighlightLines] = useState<number[]>([]);
@@ -209,7 +211,13 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
     }, 1600);
   };
 
+  const isValidated = validateState === 'pass';
+  const [verified, setVerified] = useState(false);
+  const [requiresReview] = useState(true);
+  const [vqOverridden, setVqOverridden] = useState(false);
+  const [answerPreviewExpanded, setAnswerPreviewExpanded] = useState(false);
   const hasEinsteinChanges = sqlBeforeAi !== null;
+  const vqBlocked = hasVQ && !vqOverridden;
   const previewStale = previewState === 'done' && sqlValue !== lastRunSql;
   const lines = sqlValue.split('\n');
   const totalFields = previewData ? previewData.columns.length + 23 : 0;
@@ -220,26 +228,45 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
 
       {/* ── Page header: breadcrumb + h1 + top actions ── */}
       <div className="scv-page-header">
-        <div className="scv-page-header-top">
-          <div className="scv-breadcrumb">
-            <span className="scv-breadcrumb-link" onClick={onBack}>Q&amp;A Calibration Questions</span>
-            <span className="scv-breadcrumb-sep">›</span>
+        <div className="scv-breadcrumb">
+          <span className="scv-breadcrumb-link" onClick={onBack}>Q&amp;A Calibration Questions</span>
+          <span className="scv-breadcrumb-sep">›</span>
+        </div>
+        <div className="scv-page-title-row">
+          <div className="scv-page-title-left">
+            <button className="scv-back" onClick={onBack} aria-label="Back">
+              <ArrowLeft size={18} />
+            </button>
+            <h1 className="scv-page-title">{question.text}</h1>
+            <span className="scv-source-badge">Manual</span>
           </div>
           <div className="scv-page-header-actions">
             <button className="scv-btn-outline" onClick={onBack}>Discard</button>
-            <button className="scv-btn-brand" disabled={!sqlValue.trim()} onClick={onSave}>Re-run Answer</button>
+            <button
+              className="scv-btn-brand"
+              disabled={!isValidated || vqBlocked}
+              title={vqBlocked ? 'Override the existing VQ before saving' : !isValidated ? 'Validate the query before saving' : undefined}
+              onClick={onSave}
+            >
+              Re-run Answer
+            </button>
           </div>
-        </div>
-        <div className="scv-page-title-row">
-          <button className="scv-back" onClick={onBack} aria-label="Back">
-            <ArrowLeft size={18} />
-          </button>
-          <h1 className="scv-page-title">{question.text}</h1>
         </div>
       </div>
 
       {/* ── Main scroll area ── */}
       <div className="scv-scroll-area">
+
+        {/* ── VQ conflict error banner ── */}
+        {vqBlocked && (
+          <div className="scv-vq-error-banner">
+            <Warning size={15} />
+            <span>A Verified Question already exists for this utterance. Override the VQ to curate a new answer.</span>
+            <button className="scv-vq-override-btn" onClick={() => setVqOverridden(true)}>
+              Override VQ
+            </button>
+          </div>
+        )}
 
         {/* ── Draft with Einstein collapsible ── */}
         <div className="scv-draft-card">
@@ -453,6 +480,41 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
 
           </div>{/* end scv-body */}
         </div>{/* end scv-workbench-card */}
+
+        {/* ── Answer Preview card ── */}
+        {previewState === 'done' && (
+          <div className="scv-answer-preview-card">
+            <button
+              className="scv-draft-toggle"
+              onClick={() => setAnswerPreviewExpanded(v => !v)}
+              aria-expanded={answerPreviewExpanded}
+            >
+              <span className="scv-draft-toggle-icon">{answerPreviewExpanded ? '▾' : '▸'}</span>
+              <span className="scv-draft-toggle-label">Answer Preview</span>
+              <span className="scv-answer-preview-hint">Full agent response for "{question.text}"</span>
+            </button>
+
+            {answerPreviewExpanded && (
+              <div className="scv-answer-preview-body">
+                <div className="scv-answer-preview-agent">
+                  <img className="avatar" src="/avatars/header-avatar.svg" alt="Agent" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                  <div className="scv-answer-preview-bubble">
+                    <p className="scv-answer-preview-summary">{question.response.summary}</p>
+                    <div className="scv-answer-preview-chart">
+                      <ChartPreview
+                        data={question.response.chartData}
+                        yAxisLabel={question.response.chartYAxisLabel}
+                        xAxisLabel={question.response.chartXAxisLabel}
+                      />
+                    </div>
+                    <p className="scv-answer-preview-followup">{question.response.followUp}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>{/* end scv-scroll-area */}
     </div>
   );
