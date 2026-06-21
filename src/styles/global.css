@@ -1024,11 +1024,6 @@ a:hover {
   padding: 0;
 }
 
-.eval-panel-body.sql-edit-active {
-  outline: 2px solid #0250d9;
-  outline-offset: -2px;
-  border-radius: 0 0 8px 8px;
-}
 
 .sql-edit-wrap {
   display: flex;

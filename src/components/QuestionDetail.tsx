@@ -285,7 +285,7 @@ export function QuestionDetail({
               </button>
             </div>
           </div>
-          <div className={`eval-panel-body no-pad${sqlEditMode ? ' sql-edit-active' : ''}`}>
+          <div className="eval-panel-body no-pad">
             {rightTab === 'query' ? (
               loading ? (
                 <div className="spinner-overlay" style={{ padding: 24 }}>
