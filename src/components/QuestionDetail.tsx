@@ -10,10 +10,13 @@ import {
   Check,
   Warning,
   VerifiedCheck,
+  Undo,
+  Redo,
+  Play,
 } from './Icons';
 import { QueryPanel } from './QueryPanel';
 import { ChartPreview } from './ChartPreview';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 export interface QuestionDetailProps {
   question: Question;
@@ -44,6 +47,58 @@ export function QuestionDetail({
 }: QuestionDetailProps) {
   const [rightTab, setRightTab] = useState<RightTab>('query');
   if (sqlEditMode && rightTab !== 'query') setRightTab('query');
+
+  const historyRef = useRef<string[]>([sqlEditValue]);
+  const [histIdx, setHistIdx] = useState(0);
+  const histTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [testQueryState, setTestQueryState] = useState<'idle' | 'running' | 'done'>('idle');
+  const [syntaxOk, setSyntaxOk] = useState(false);
+
+  const pushHistory = (val: string) => {
+    const stack = historyRef.current.slice(0, histIdx + 1);
+    stack.push(val);
+    historyRef.current = stack;
+    setHistIdx(stack.length - 1);
+  };
+
+  const handleSqlChange = (val: string) => {
+    onSqlEditChange?.(val);
+    if (testQueryState === 'done') setTestQueryState('idle');
+    if (histTimerRef.current) clearTimeout(histTimerRef.current);
+    histTimerRef.current = setTimeout(() => pushHistory(val), 500);
+  };
+
+  const handleUndo = () => {
+    if (histIdx <= 0) return;
+    const newIdx = histIdx - 1;
+    setHistIdx(newIdx);
+    onSqlEditChange?.(historyRef.current[newIdx]);
+    setTestQueryState('idle');
+    setSyntaxOk(false);
+  };
+
+  const handleRedo = () => {
+    if (histIdx >= historyRef.current.length - 1) return;
+    const newIdx = histIdx + 1;
+    setHistIdx(newIdx);
+    onSqlEditChange?.(historyRef.current[newIdx]);
+    setTestQueryState('idle');
+    setSyntaxOk(false);
+  };
+
+  const handleTestQuery = () => {
+    setTestQueryState('running');
+    setSyntaxOk(false);
+    setTimeout(() => {
+      const upper = sqlEditValue.toUpperCase();
+      const ok =
+        upper.includes('SELECT') &&
+        (upper.includes('FROM') || upper.includes('SEMANTIC_VIEW')) &&
+        (sqlEditValue.match(/\(/g) || []).length === (sqlEditValue.match(/\)/g) || []).length;
+      setSyntaxOk(ok);
+      setTestQueryState('done');
+    }, 1200);
+  };
 
   return (
     <div className="detail-view">
@@ -180,7 +235,14 @@ export function QuestionDetail({
                   <img src="/avatars/agent-avatar.svg" alt="" className="avatar-img" />
                 </div>
                 <div className="body">
-                  <div className="author">Agent</div>
+                  <div className="author">
+                    Agent
+                    {testQueryState === 'running' && (
+                      <span className="qa-preview-validating">
+                        <div className="spinner" style={{ width: 10, height: 10, borderWidth: 2 }} /> Validating…
+                      </span>
+                    )}
+                  </div>
                   <div className="text" style={{ marginBottom: 8 }}>
                     {question.response.summary}
                   </div>
@@ -231,14 +293,40 @@ export function QuestionDetail({
                 </div>
               ) : sqlEditMode ? (
                 <div className="sql-edit-wrap">
-                  <div className="sql-edit-hint">
-                    <span className="sql-edit-hint-dot" />
-                    SQL Curation active — edit the query below
+                  <div className="sql-edit-toolbar">
+                    <span className="sql-edit-toolbar-label">Workbench</span>
+                                    <div className="sql-edit-toolbar-actions">
+                      {testQueryState === 'done' && syntaxOk && (
+                        <span className="qa-preview-valid">
+                          <Check size={12} /> Syntax valid
+                        </span>
+                      )}
+                      {testQueryState === 'done' && !syntaxOk && (
+                        <span className="qa-preview-invalid">
+                          <Warning size={12} /> Syntax error
+                        </span>
+                      )}
+                      <button className="sql-edit-icon-btn" aria-label="Undo" disabled={histIdx <= 0} onClick={handleUndo}>
+                        <Undo size={13} />
+                      </button>
+                      <button className="sql-edit-icon-btn" aria-label="Redo" disabled={histIdx >= historyRef.current.length - 1} onClick={handleRedo}>
+                        <Redo size={13} />
+                      </button>
+                      <button
+                        className={`sql-edit-test-btn${testQueryState === 'running' ? ' running' : ''}`}
+                        disabled={!sqlEditValue.trim() || testQueryState === 'running'}
+                        onClick={handleTestQuery}
+                      >
+                        {testQueryState === 'running'
+                          ? <><div className="spinner" style={{ width: 10, height: 10, borderWidth: 2, borderTopColor: '#fff' }} /> Running…</>
+                          : <><Play size={11} /> Test Query</>}
+                      </button>
+                    </div>
                   </div>
                   <textarea
                     className="sql-edit-textarea"
                     value={sqlEditValue}
-                    onChange={e => onSqlEditChange?.(e.target.value)}
+                    onChange={e => handleSqlChange(e.target.value)}
                     spellCheck={false}
                     autoComplete="off"
                     autoFocus
