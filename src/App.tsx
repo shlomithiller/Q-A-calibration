@@ -331,6 +331,8 @@ export default function App() {
           onSqlChange={setSqlCurationValue}
           onSave={handleSqlCurationSave}
           onBack={handleBackToFork}
+          remainingCount={remainingCount}
+          totalCount={initialReviewable.current}
         />
       );
     }

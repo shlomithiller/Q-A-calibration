@@ -57,9 +57,11 @@ interface SqlCurationViewProps {
   onSave: () => void;
   onBack: () => void;
   hasVQ?: boolean;
+  remainingCount?: number;
+  totalCount?: number;
 }
 
-export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBack, hasVQ = false }: SqlCurationViewProps) {
+export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBack, hasVQ = false, remainingCount = 0, totalCount = 0 }: SqlCurationViewProps) {
   const [originalSql] = useState(sqlValue);
   const [sqlBeforeAi, setSqlBeforeAi] = useState<string | null>(null);
   const [highlightLines, setHighlightLines] = useState<number[]>([]);
@@ -241,6 +243,19 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
             <span className="scv-source-badge">Manual</span>
           </div>
           <div className="scv-page-header-actions">
+            {totalCount > 0 && (
+              <div className="scv-triage-counter">
+                <div className="scv-triage-label">
+                  <strong>{remainingCount}</strong> triage questions left
+                </div>
+                <div className="progress-bar" style={{ width: 120 }}>
+                  <div
+                    className="progress-bar-fill"
+                    style={{ width: `${Math.max(0, Math.min(100, ((totalCount - remainingCount) / totalCount) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <button className="scv-btn-outline" onClick={onBack}>Discard</button>
             <button
               className="scv-btn-brand"
@@ -491,7 +506,6 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
             >
               <span className="scv-draft-toggle-icon">{answerPreviewExpanded ? '▾' : '▸'}</span>
               <span className="scv-draft-toggle-label">Answer Preview</span>
-              <span className="scv-answer-preview-hint">Full agent response for "{question.text}"</span>
             </button>
 
             {answerPreviewExpanded && (
@@ -507,7 +521,6 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
                         xAxisLabel={question.response.chartXAxisLabel}
                       />
                     </div>
-                    <p className="scv-answer-preview-followup">{question.response.followUp}</p>
                   </div>
                 </div>
               </div>
