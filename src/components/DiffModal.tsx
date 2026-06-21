@@ -206,7 +206,7 @@ export function DiffModal({ onClose }: DiffModalProps) {
                   <div className="diff-preview-avatar agent" />
                   <div className="diff-preview-body">
                     <div className="diff-preview-author">Agent</div>
-                    <div className="diff-preview-text">I found a table called Orders, and here is the Total Orders by Month.</div>
+                    <div className="diff-preview-text">Total orders per month</div>
                     <div className="diff-preview-text muted">Would you like to make any changes? You can preview the Orders table, add other data tables, or change the visualization. Or investigate something different.</div>
                     <div className="diff-preview-chart">
                       {[38, 42, 49, 45, 51, 47, 50, 52, 48].map((v, i) => (
@@ -279,7 +279,7 @@ export function DiffModal({ onClose }: DiffModalProps) {
                   <div className="diff-preview-avatar agent" />
                   <div className="diff-preview-body">
                     <div className="diff-preview-author">Agent</div>
-                    <div className="diff-preview-text">I found a table called Orders, and here is the Total Orders by Month.</div>
+                    <div className="diff-preview-text">Total orders per month</div>
                     <div className="diff-preview-text muted">Would you like to make any changes? You can preview the Orders table, add other data tables, or change the visualization. Or investigate something different.</div>
                     <div className="diff-preview-chart">
                       {[38, 42, 49, 45, 51, 47, 50, 52, 48].map((v, i) => (

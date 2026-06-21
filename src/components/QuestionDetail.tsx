@@ -13,6 +13,7 @@ import {
   Undo,
   Redo,
   Play,
+  SparkleSingle,
 } from './Icons';
 import { QueryPanel } from './QueryPanel';
 import { ChartPreview } from './ChartPreview';
@@ -29,6 +30,7 @@ export interface QuestionDetailProps {
   sqlEditMode?: boolean;
   sqlEditValue?: string;
   onSqlEditChange?: (v: string) => void;
+  onSqlCurationSave?: () => void;
 }
 
 type RightTab = 'sources' | 'query';
@@ -44,15 +46,18 @@ export function QuestionDetail({
   sqlEditMode = false,
   sqlEditValue = '',
   onSqlEditChange,
+  onSqlCurationSave,
 }: QuestionDetailProps) {
   const [rightTab, setRightTab] = useState<RightTab>('query');
-  if (sqlEditMode && rightTab !== 'query') setRightTab('query');
 
   const historyRef = useRef<string[]>([sqlEditValue]);
   const [histIdx, setHistIdx] = useState(0);
   const histTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [testQueryState, setTestQueryState] = useState<'idle' | 'running' | 'done'>('idle');
   const [syntaxOk, setSyntaxOk] = useState(false);
+  const [draftExpanded, setDraftExpanded] = useState(false);
+  const [draftText, setDraftText] = useState('');
+  const [draftState, setDraftState] = useState<'idle' | 'drafting'>('idle');
 
   const pushHistory = (val: string) => {
     const stack = historyRef.current.slice(0, histIdx + 1);
@@ -127,8 +132,8 @@ export function QuestionDetail({
             <VerifiedCheck size={20} className="title-verified-badge" />
           )}
           <h2 className="question-title">{question.text}</h2>
-          <button className="btn-pill-outline">
-            {question.classification === 'new' ? 'Re-run' : 'Test Question'}
+          <button className="btn-pill-outline" onClick={sqlEditMode ? onSqlCurationSave : undefined}>
+            {sqlEditMode ? 'Save & Next' : question.classification === 'new' ? 'Re-run' : 'Test Question'}
           </button>
           <button
             className="icon-btn-bordered"
@@ -237,11 +242,6 @@ export function QuestionDetail({
                 <div className="body">
                   <div className="author">
                     Agent
-                    {testQueryState === 'running' && (
-                      <span className="qa-preview-validating">
-                        <div className="spinner" style={{ width: 10, height: 10, borderWidth: 2 }} /> Validating…
-                      </span>
-                    )}
                   </div>
                   <div className="text" style={{ marginBottom: 8 }}>
                     {question.response.summary}
@@ -322,6 +322,54 @@ export function QuestionDetail({
                           : <><Play size={11} /> Test Query</>}
                       </button>
                     </div>
+                  </div>
+                  <div className="scv-draft-card" style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', flexShrink: 0 }}>
+                    <button
+                      className="scv-draft-toggle"
+                      onClick={() => setDraftExpanded(v => !v)}
+                      aria-expanded={draftExpanded}
+                    >
+                      <span className="scv-draft-toggle-icon">{draftExpanded ? '▾' : '▸'}</span>
+                      <span className="scv-draft-toggle-label">Draft with AI</span>
+                    </button>
+                    {draftExpanded && (
+                      <div className="scv-draft-body">
+                        <textarea
+                          className="scv-draft-textarea"
+                          placeholder="Example: Create a Calculated Field that shows sales per Region."
+                          value={draftText}
+                          onChange={e => setDraftText(e.target.value)}
+                          rows={3}
+                        />
+                        <div className="scv-draft-actions">
+                          <button
+                            className="scv-draft-clear"
+                            onClick={() => setDraftText('')}
+                            disabled={!draftText || draftState === 'drafting'}
+                          >
+                            Clear
+                          </button>
+                          <button
+                            className={`scv-draft-submit${draftState === 'drafting' ? ' scv-draft-submit-loading' : ''}`}
+                            disabled={!draftText.trim() || draftState === 'drafting'}
+                            onClick={() => {
+                              setDraftState('drafting');
+                              setTimeout(() => {
+                                const aiSql = `-- AI-drafted based on: "${draftText}"\nSELECT\n  order_month,\n  COUNT(order_id) AS total_orders\nFROM\n  SEMANTIC_VIEW(\n    'sales_extended',\n    DIMENSIONS\n      DATE_TRUNC('month', Order.Created_Date) AS order_month,\n    MEASURES\n      COUNT(Order.Id) AS total_orders\n  )\nGROUP BY\n  order_month\nORDER BY\n  order_month ASC`;
+                                onSqlEditChange?.(aiSql);
+                                setTestQueryState('idle');
+                                setSyntaxOk(false);
+                                setDraftState('idle');
+                                setDraftText('');
+                              }, 1600);
+                            }}
+                          >
+                            <SparkleSingle size={14} />
+                            {draftState === 'drafting' ? 'Drafting…' : 'Draft with AI'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <textarea
                     className="sql-edit-textarea"

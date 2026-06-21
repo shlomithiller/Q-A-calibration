@@ -140,7 +140,7 @@ export const questions: Question[] = [
       "The agent grouped by created_date instead of order_date, which excludes back-dated orders.",
     response: {
       summary:
-        'I found a table called Orders, and here is the Total Orders by Month.',
+        'Total orders per month',
       followUp:
         'Would you like to make any changes? You can preview the Orders table, add other data tables, or change the visualization. Or investigate something different.',
       sql: ordersSql,

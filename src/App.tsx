@@ -339,6 +339,7 @@ export default function App() {
         sqlEditMode={sqlEditActive}
         sqlEditValue={sqlCurationValue}
         onSqlEditChange={setSqlCurationValue}
+        onSqlCurationSave={handleSqlCurationSave}
       />
     );
   };
