@@ -52,6 +52,7 @@ export default function App() {
   const [testCompleted, setTestCompleted] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
   const [sqlCurationValue, setSqlCurationValue] = useState('');
+  const [sqlEditActive, setSqlEditActive] = useState(false);
 
   const currentQuestion =
     view.kind === 'detail'
@@ -68,6 +69,7 @@ export default function App() {
     setMode(q?.classification === 'regression' ? 'regression-analysis' : 'classify');
     setCorrection('');
     setVerified(false);
+    setSqlEditActive(false);
     const t = setTimeout(() => setLoading(false), 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -158,7 +160,7 @@ export default function App() {
 
   const handleChooseSqlCuration = () => {
     setSqlCurationValue(currentQuestion?.response.sql ?? '');
-    setMode('sql-curation');
+    setSqlEditActive(true);
   };
 
   const handleSqlCurationSave = () => {
@@ -171,11 +173,13 @@ export default function App() {
       ),
     );
     showToast({ variant: 'accurate', text: 'SQL query saved' });
+    setSqlEditActive(false);
     setMode('classify');
     setSelected(null);
   };
 
   const handleBackToFork = () => {
+    setSqlEditActive(false);
     setMode('fork-decision');
   };
 
@@ -323,19 +327,6 @@ export default function App() {
       setView({ kind: 'list' });
       return null;
     }
-    if (mode === 'sql-curation') {
-      return (
-        <SqlCurationView
-          question={currentQuestion}
-          sqlValue={sqlCurationValue}
-          onSqlChange={setSqlCurationValue}
-          onSave={handleSqlCurationSave}
-          onBack={handleBackToFork}
-          remainingCount={remainingCount}
-          totalCount={initialReviewable.current}
-        />
-      );
-    }
     return (
       <QuestionDetail
         question={currentQuestion}
@@ -345,13 +336,15 @@ export default function App() {
         reEvaluating={isReEvaluating}
         verified={verified}
         fromTest={cameFromTest}
+        sqlEditMode={sqlEditActive}
+        sqlEditValue={sqlCurationValue}
+        onSqlEditChange={setSqlCurationValue}
       />
     );
   };
 
   const rightPanel =
-    view.kind === 'detail' && currentQuestion && mode === 'sql-curation' ? undefined
-    : view.kind === 'detail' && currentQuestion ? (
+    view.kind === 'detail' && currentQuestion ? (
       allDone ? (
         <div className="classification-panel">
           <div className="classification-panel-header">Classification</div>

@@ -23,6 +23,9 @@ export interface QuestionDetailProps {
   reEvaluating?: boolean;
   verified?: boolean;
   fromTest?: boolean;
+  sqlEditMode?: boolean;
+  sqlEditValue?: string;
+  onSqlEditChange?: (v: string) => void;
 }
 
 type RightTab = 'sources' | 'query';
@@ -35,8 +38,12 @@ export function QuestionDetail({
   reEvaluating,
   verified,
   fromTest,
+  sqlEditMode = false,
+  sqlEditValue = '',
+  onSqlEditChange,
 }: QuestionDetailProps) {
   const [rightTab, setRightTab] = useState<RightTab>('query');
+  if (sqlEditMode && rightTab !== 'query') setRightTab('query');
 
   return (
     <div className="detail-view">
@@ -216,11 +223,26 @@ export function QuestionDetail({
               </button>
             </div>
           </div>
-          <div className="eval-panel-body no-pad">
+          <div className={`eval-panel-body no-pad${sqlEditMode ? ' sql-edit-active' : ''}`}>
             {rightTab === 'query' ? (
               loading ? (
                 <div className="spinner-overlay" style={{ padding: 24 }}>
                   <div className="spinner" />
+                </div>
+              ) : sqlEditMode ? (
+                <div className="sql-edit-wrap">
+                  <div className="sql-edit-hint">
+                    <span className="sql-edit-hint-dot" />
+                    SQL Curation active — edit the query below
+                  </div>
+                  <textarea
+                    className="sql-edit-textarea"
+                    value={sqlEditValue}
+                    onChange={e => onSqlEditChange?.(e.target.value)}
+                    spellCheck={false}
+                    autoComplete="off"
+                    autoFocus
+                  />
                 </div>
               ) : (
                 <QueryPanel sql={question.response.sql} />
