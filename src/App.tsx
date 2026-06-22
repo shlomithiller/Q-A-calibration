@@ -173,7 +173,7 @@ export default function App() {
   const handleChooseSqlCuration = () => {
     setSqlCurationValue(currentQuestion?.response.sql ?? '');
     setSqlEditActive(true);
-    setSelected('accurate');
+    setSelected(null);
     setMode('classify');
   };
 

@@ -369,6 +369,15 @@ export function QuestionDetail({
               </div>
             ) : sqlEditMode ? (
                 <div className="sql-edit-wrap">
+                  <div className="sql-edit-scoped-notification">
+                    <span className="sql-edit-scoped-notification-icon">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9.5 1.5L12.5 4.5L4.5 12.5H1.5V9.5L9.5 1.5Z" stroke="#0176d3" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M7.5 3.5L10.5 6.5" stroke="#0176d3" strokeWidth="1.25" strokeLinecap="round"/>
+                      </svg>
+                    </span>
+                    <span>Query Edit Mode — you can manually edit the query or draft with AI</span>
+                  </div>
                   <div className="scv-draft-card" style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', flexShrink: 0 }}>
                     <button
                       className="scv-draft-toggle"

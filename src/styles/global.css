@@ -3185,6 +3185,29 @@ a:hover {
   line-height: 18px;
 }
 
+/* ============================== SQL Edit scoped notification ============================== */
+.sql-edit-scoped-notification {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  background: #e8f4fd;
+  border-bottom: 1px solid #c9e3f8;
+  color: #0B5CAB;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sql-edit-scoped-notification-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 /* ============================== Re-evaluating blanket ============================== */
 .re-evaluating-blanket {
   position: absolute;
