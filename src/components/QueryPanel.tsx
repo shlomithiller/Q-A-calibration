@@ -59,7 +59,7 @@ const FUNCTIONS = new Set([
   'CURRENT_DATE',
 ]);
 
-function highlight(line: string): React.ReactNode {
+export function highlightLine(line: string): React.ReactNode {
   const tokens = line.split(/(\s+|[(),;])/);
   return tokens.map((t, i) => {
     if (!t) return null;
@@ -113,7 +113,7 @@ export function QueryPanel({ sql }: QueryPanelProps) {
       </div>
       <div className="code">
         {lines.map((line, i) => (
-          <div key={i}>{highlight(line) || '\u00a0'}</div>
+          <div key={i}>{highlightLine(line) || '\u00a0'}</div>
         ))}
       </div>
     </div>

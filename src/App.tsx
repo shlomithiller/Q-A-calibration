@@ -59,6 +59,18 @@ export default function App() {
       ? questions.find((q) => q.id === view.questionId)
       : undefined;
 
+  const nextQuestion = useMemo(() => {
+    if (view.kind !== 'detail') return undefined;
+    const idx = questions.findIndex((q) => q.id === view.questionId);
+    return idx >= 0 && idx < questions.length - 1 ? questions[idx + 1] : undefined;
+  }, [questions, view]);
+
+  const handleNextQuestion = () => {
+    if (!nextQuestion) return;
+    setCameFromTest(false);
+    setView({ kind: 'detail', questionId: nextQuestion.id });
+  };
+
   useEffect(() => {
     if (view.kind !== 'detail') return;
     const q = questions.find((qq) => qq.id === view.questionId);
@@ -161,6 +173,8 @@ export default function App() {
   const handleChooseSqlCuration = () => {
     setSqlCurationValue(currentQuestion?.response.sql ?? '');
     setSqlEditActive(true);
+    setSelected('accurate');
+    setMode('classify');
   };
 
   const handleSqlCurationSave = () => {
@@ -340,6 +354,8 @@ export default function App() {
         sqlEditValue={sqlCurationValue}
         onSqlEditChange={setSqlCurationValue}
         onSqlCurationSave={handleSqlCurationSave}
+        onNextQuestion={handleNextQuestion}
+        hasNextQuestion={!!nextQuestion}
       />
     );
   };
@@ -393,6 +409,7 @@ export default function App() {
           sqlCurationValue={sqlCurationValue}
           onSqlCurationChange={setSqlCurationValue}
           onSqlCurationSave={handleSqlCurationSave}
+          sqlEditActive={sqlEditActive}
         />
       )
     ) : view.kind === 'regression-test' && showCalibrationPanel ? (

@@ -39,6 +39,7 @@ interface ClassificationPanelProps {
   sqlCurationValue: string;
   onSqlCurationChange: (v: string) => void;
   onSqlCurationSave: () => void;
+  sqlEditActive?: boolean;
 }
 
 export function ClassificationPanel({
@@ -67,6 +68,7 @@ export function ClassificationPanel({
   sqlCurationValue,
   onSqlCurationChange,
   onSqlCurationSave,
+  sqlEditActive = false,
 }: ClassificationPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -103,10 +105,23 @@ export function ClassificationPanel({
 
       {mode === 'classify' && (
         <div className="classification-body">
-          <p className="classification-prompt">
-            How would you classify the agent's response?
-          </p>
+          {sqlEditActive ? (
+            <div className="sql-curation-guide">
+              <p className="sql-curation-guide-section"><strong>Q&amp;A Preview</strong> shows the data table returned by the current query so you can validate the results at a glance.</p>
+              <p className="sql-curation-guide-section"><strong>Query panel</strong> lets you fix the SQL in two ways:</p>
+              <ul className="sql-curation-guide-list">
+                <li><strong>Draft with AI</strong> — describe the change in plain language and let the AI rewrite the query for you.</li>
+                <li><strong>Hands-on</strong> — edit the SQL directly in the editor, then click <em>Test Query</em> to validate syntax.</li>
+              </ul>
+              <p className="sql-curation-guide-section">Once the query looks correct, click <strong>Accurate</strong> below to approve it and move to the next question.</p>
+            </div>
+          ) : (
+            <p className="classification-prompt">
+              How would you classify the agent's response?
+            </p>
+          )}
           <div className="classification-cards equal-height">
+            {!sqlEditActive && (
             <button
               className={`classification-option inaccurate ${
                 selected === 'inaccurate' ? 'selected' : ''
@@ -130,6 +145,7 @@ export function ClassificationPanel({
                 </div>
               )}
             </button>
+            )}
 
             <button
               className={`classification-option accurate ${

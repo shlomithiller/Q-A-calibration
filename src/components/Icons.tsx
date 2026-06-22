@@ -193,6 +193,13 @@ export const VerifiedCheck = ({ size = 16, className, ...props }: IconProps) => 
   </svg>
 );
 
+export const CircleCheck = ({ size = 20 }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="10" r="10" fill="#4aaa97" />
+    <polyline points="5.5,10.5 8.5,13.5 14.5,7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const Info = (props: IconProps) => (
   <svg {...base(props)}>
     <circle cx="12" cy="12" r="10" />

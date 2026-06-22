@@ -10,12 +10,13 @@ import {
   Check,
   Warning,
   VerifiedCheck,
+  CircleCheck,
   Undo,
   Redo,
   Play,
   SparkleSingle,
 } from './Icons';
-import { QueryPanel } from './QueryPanel';
+import { QueryPanel, highlightLine } from './QueryPanel';
 import { ChartPreview } from './ChartPreview';
 import { useState, useRef } from 'react';
 
@@ -31,6 +32,8 @@ export interface QuestionDetailProps {
   sqlEditValue?: string;
   onSqlEditChange?: (v: string) => void;
   onSqlCurationSave?: () => void;
+  onNextQuestion?: () => void;
+  hasNextQuestion?: boolean;
 }
 
 type RightTab = 'sources' | 'query';
@@ -47,14 +50,41 @@ export function QuestionDetail({
   sqlEditValue = '',
   onSqlEditChange,
   onSqlCurationSave,
+  onNextQuestion,
+  hasNextQuestion = false,
 }: QuestionDetailProps) {
   const [rightTab, setRightTab] = useState<RightTab>('query');
+  const [splitPct, setSplitPct] = useState(50);
+  const evalCardRef = useRef<HTMLDivElement>(null);
+  const dragStartX = useRef(0);
+  const dragStartPct = useRef(50);
 
+  const handlePanelDragStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    dragStartX.current = e.clientX;
+    dragStartPct.current = splitPct;
+    const onMove = (ev: MouseEvent) => {
+      if (!evalCardRef.current) return;
+      const cardW = evalCardRef.current.offsetWidth;
+      const delta = ev.clientX - dragStartX.current;
+      const newPct = Math.min(75, Math.max(25, dragStartPct.current + (delta / cardW) * 100));
+      setSplitPct(newPct);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const mirrorRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<string[]>([sqlEditValue]);
   const [histIdx, setHistIdx] = useState(0);
   const histTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [testQueryState, setTestQueryState] = useState<'idle' | 'running' | 'done'>('idle');
   const [syntaxOk, setSyntaxOk] = useState(false);
+  const [sqlDirty, setSqlDirty] = useState(false);
   const [draftExpanded, setDraftExpanded] = useState(false);
   const [draftText, setDraftText] = useState('');
   const [draftState, setDraftState] = useState<'idle' | 'drafting'>('idle');
@@ -69,6 +99,7 @@ export function QuestionDetail({
   const handleSqlChange = (val: string) => {
     onSqlEditChange?.(val);
     if (testQueryState === 'done') setTestQueryState('idle');
+    setSqlDirty(true);
     if (histTimerRef.current) clearTimeout(histTimerRef.current);
     histTimerRef.current = setTimeout(() => pushHistory(val), 500);
   };
@@ -80,6 +111,7 @@ export function QuestionDetail({
     onSqlEditChange?.(historyRef.current[newIdx]);
     setTestQueryState('idle');
     setSyntaxOk(false);
+    setSqlDirty(true);
   };
 
   const handleRedo = () => {
@@ -89,11 +121,13 @@ export function QuestionDetail({
     onSqlEditChange?.(historyRef.current[newIdx]);
     setTestQueryState('idle');
     setSyntaxOk(false);
+    setSqlDirty(true);
   };
 
   const handleTestQuery = () => {
     setTestQueryState('running');
     setSyntaxOk(false);
+    setSqlDirty(false);
     setTimeout(() => {
       const upper = sqlEditValue.toUpperCase();
       const ok =
@@ -132,9 +166,14 @@ export function QuestionDetail({
             <VerifiedCheck size={20} className="title-verified-badge" />
           )}
           <h2 className="question-title">{question.text}</h2>
-          <button className="btn-pill-outline" onClick={sqlEditMode ? onSqlCurationSave : undefined}>
-            {sqlEditMode ? 'Save & Next' : question.classification === 'new' ? 'Re-run' : 'Test Question'}
-          </button>
+          {question.classification !== 'new' && (
+            <button className="btn-pill-outline">Test Question</button>
+          )}
+          {hasNextQuestion && !sqlEditMode && (
+            <button className="btn-pill-brand" onClick={onNextQuestion}>
+              Next Question
+            </button>
+          )}
           <button
             className="icon-btn-bordered"
             aria-label="More actions"
@@ -198,22 +237,12 @@ export function QuestionDetail({
             <button className="snapshot-notification-link">Test Question</button>
           </div>
         )}
-      <div className="evaluation-card">
+      <div className="evaluation-card" ref={evalCardRef} style={sqlEditMode ? { gridTemplateColumns: `${splitPct}fr 6px ${100 - splitPct}fr` } : undefined}>
         <section className="eval-panel">
           <div className="eval-panel-header">
             <span className="eval-panel-title">Q&amp;A Preview</span>
           </div>
-          <div className="eval-panel-body">
-            <div className="message">
-              <div className="avatar-sm user">
-                <img src="/avatars/user-avatar.svg" alt="" className="avatar-img" />
-              </div>
-              <div className="body">
-                <div className="author">Samantha Adams</div>
-                <div className="text">{question.text}</div>
-              </div>
-            </div>
-
+          <div className={`eval-panel-body${sqlEditMode ? ' eval-panel-body-flex' : ''}`}>
             {loading ? (
               <div className="message">
                 <div className="avatar-sm agent">
@@ -222,15 +251,45 @@ export function QuestionDetail({
                 <div className="body">
                   <div className="author">Agent</div>
                   <div className="agent-progress">
-                    <div className="done">
-                      <Check size={12} /> Understanding your request
+                    <div className="done"><Check size={12} /> Understanding your request</div>
+                    <div className="done"><Check size={12} /> Identifying next steps</div>
+                    <div className="working"><DotsLoader /> Working</div>
+                  </div>
+                </div>
+              </div>
+            ) : sqlEditMode ? (
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 0 }}>
+                {sqlDirty && (
+                  <div className="qa-preview-stale-banner">
+                    <Warning size={13} /> Query has unsaved changes — run Test Query to update preview
+                  </div>
+                )}
+                <div className={`qa-preview-table-card${sqlDirty ? ' qa-preview-table-card-stale' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                  <div className="qa-preview-table-header">
+                    <div className="qa-preview-table-header-left">
+                      <span className="qa-preview-table-title">Preview</span>
+                      <span className="qa-preview-table-meta">Last run on 06/04/2025, 09:42 AM</span>
                     </div>
-                    <div className="done">
-                      <Check size={12} /> Identifying next steps
-                    </div>
-                    <div className="working">
-                      <DotsLoader /> Working
-                    </div>
+                    <span className="qa-preview-table-counts">2 fields {question.response.chartData.length} rows</span>
+                  </div>
+                  <div className="qa-preview-table-divider" />
+                  <div className="scv-preview-table-wrap" style={{ flex: 1, minHeight: 0 }}>
+                    <table className="scv-preview-table">
+                      <thead>
+                        <tr>
+                          <th><div className="scv-preview-th-inner"><span className="scv-preview-th-group">Date</span><span className="scv-preview-th-name">Month</span></div></th>
+                          <th><div className="scv-preview-th-inner"><span className="scv-preview-th-group">Orders</span><span className="scv-preview-th-name">Total Orders</span></div></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {question.response.chartData.map((row, i) => (
+                          <tr key={i}>
+                            <td>{row.label}</td>
+                            <td>{row.value.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -240,18 +299,9 @@ export function QuestionDetail({
                   <img src="/avatars/agent-avatar.svg" alt="" className="avatar-img" />
                 </div>
                 <div className="body">
-                  <div className="author">
-                    Agent
-                  </div>
-                  <div className="text" style={{ marginBottom: 8 }}>
-                    {question.response.summary}
-                  </div>
-                  <div
-                    className="text"
-                    style={{ color: 'var(--color-on-surface-1)' }}
-                  >
-                    {question.response.followUp}
-                  </div>
+                  <div className="author">Agent</div>
+                  <div className="text" style={{ marginBottom: 8 }}>{question.response.summary}</div>
+                  <div className="text" style={{ color: 'var(--color-on-surface-1)' }}>{question.response.followUp}</div>
                   <ChartPreview
                     data={question.response.chartData}
                     yAxisLabel={question.response.chartYAxisLabel}
@@ -266,63 +316,59 @@ export function QuestionDetail({
           </div>
         </section>
 
+        {sqlEditMode && (
+          <div className="eval-panel-drag-handle" onMouseDown={handlePanelDragStart} />
+        )}
+
         <section className="eval-panel relative">
           <div className="eval-panel-header">
-            <div className="panel-tabs">
-              <button
-                className={`panel-tab ${rightTab === 'sources' ? 'active' : ''}`}
-                onClick={() => setRightTab('sources')}
-              >
-                <Database size={14} />
-                Semantic Sources
-              </button>
-              <button
-                className={`panel-tab ${rightTab === 'query' ? 'active' : ''}`}
-                onClick={() => setRightTab('query')}
-              >
-                <Code size={14} />
-                Query
-              </button>
-            </div>
+            {sqlEditMode ? (
+              <div className="sql-combined-bar">
+                <div className="sql-combined-bar-left">
+                  <span className="sql-query-badge"><Code size={12} /> Query</span>
+                </div>
+                <div className="sql-edit-toolbar-actions">
+                  {testQueryState === 'done' && syntaxOk && (
+                    <span className="sql-syntax-ok-icon" title="Syntax valid">
+                      <CircleCheck size={22} />
+                    </span>
+                  )}
+                  <button className="sql-edit-icon-btn" aria-label="Undo" disabled={histIdx <= 0} onClick={handleUndo}>
+                    <Undo size={13} />
+                  </button>
+                  <button className="sql-edit-icon-btn" aria-label="Redo" disabled={histIdx >= historyRef.current.length - 1} onClick={handleRedo}>
+                    <Redo size={13} />
+                  </button>
+                  <button
+                    className={`sql-edit-test-btn${testQueryState === 'running' ? ' running' : ''}`}
+                    disabled={!sqlEditValue.trim() || testQueryState === 'running'}
+                    onClick={handleTestQuery}
+                  >
+                    {testQueryState === 'running'
+                      ? <><div className="spinner" style={{ width: 10, height: 10, borderWidth: 2, borderTopColor: '#fff' }} /> Running…</>
+                      : <><Play size={11} /> Test Query</>}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="panel-tabs">
+                <button
+                  className={`panel-tab ${rightTab === 'query' ? 'active' : ''}`}
+                  onClick={() => setRightTab('query')}
+                >
+                  <Code size={14} />
+                  Query
+                </button>
+              </div>
+            )}
           </div>
           <div className="eval-panel-body no-pad">
-            {rightTab === 'query' ? (
-              loading ? (
-                <div className="spinner-overlay" style={{ padding: 24 }}>
-                  <div className="spinner" />
-                </div>
-              ) : sqlEditMode ? (
+            {loading ? (
+              <div className="spinner-overlay" style={{ padding: 24 }}>
+                <div className="spinner" />
+              </div>
+            ) : sqlEditMode ? (
                 <div className="sql-edit-wrap">
-                  <div className="sql-edit-toolbar">
-                    <span className="sql-edit-toolbar-label">Workbench</span>
-                                    <div className="sql-edit-toolbar-actions">
-                      {testQueryState === 'done' && syntaxOk && (
-                        <span className="qa-preview-valid">
-                          <Check size={12} /> Syntax valid
-                        </span>
-                      )}
-                      {testQueryState === 'done' && !syntaxOk && (
-                        <span className="qa-preview-invalid">
-                          <Warning size={12} /> Syntax error
-                        </span>
-                      )}
-                      <button className="sql-edit-icon-btn" aria-label="Undo" disabled={histIdx <= 0} onClick={handleUndo}>
-                        <Undo size={13} />
-                      </button>
-                      <button className="sql-edit-icon-btn" aria-label="Redo" disabled={histIdx >= historyRef.current.length - 1} onClick={handleRedo}>
-                        <Redo size={13} />
-                      </button>
-                      <button
-                        className={`sql-edit-test-btn${testQueryState === 'running' ? ' running' : ''}`}
-                        disabled={!sqlEditValue.trim() || testQueryState === 'running'}
-                        onClick={handleTestQuery}
-                      >
-                        {testQueryState === 'running'
-                          ? <><div className="spinner" style={{ width: 10, height: 10, borderWidth: 2, borderTopColor: '#fff' }} /> Running…</>
-                          : <><Play size={11} /> Test Query</>}
-                      </button>
-                    </div>
-                  </div>
                   <div className="scv-draft-card" style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', flexShrink: 0 }}>
                     <button
                       className="scv-draft-toggle"
@@ -359,6 +405,7 @@ export function QuestionDetail({
                                 onSqlEditChange?.(aiSql);
                                 setTestQueryState('idle');
                                 setSyntaxOk(false);
+                                setSqlDirty(true);
                                 setDraftState('idle');
                                 setDraftText('');
                               }, 1600);
@@ -371,24 +418,35 @@ export function QuestionDetail({
                       </div>
                     )}
                   </div>
-                  <textarea
-                    className="sql-edit-textarea"
-                    value={sqlEditValue}
-                    onChange={e => handleSqlChange(e.target.value)}
-                    spellCheck={false}
-                    autoComplete="off"
-                    autoFocus
-                  />
+                  <div className={`sql-editor-highlight-wrap${sqlDirty ? ' sql-wrap-dirty' : ''}`}>
+                    <div className="sql-editor-highlight-mirror code-editor" ref={mirrorRef}>
+                      <div className="line-numbers">
+                        {sqlEditValue.split('\n').map((_, i) => <div key={i}>{i + 1}</div>)}
+                      </div>
+                      <div className="code">
+                        {sqlEditValue.split('\n').map((line, i) => (
+                          <div key={i}>{highlightLine(line) || ' '}</div>
+                        ))}
+                      </div>
+                    </div>
+                    <textarea
+                      className="sql-edit-textarea sql-edit-textarea-over"
+                      value={sqlEditValue}
+                      onChange={e => handleSqlChange(e.target.value)}
+                      onScroll={e => {
+                        if (mirrorRef.current) {
+                          mirrorRef.current.scrollTop = e.currentTarget.scrollTop;
+                          mirrorRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                        }
+                      }}
+                      spellCheck={false}
+                      autoComplete="off"
+                      autoFocus
+                    />
+                  </div>
                 </div>
-              ) : (
-                <QueryPanel sql={question.response.sql} />
-              )
             ) : (
-              <div style={{ padding: 24, color: 'var(--color-on-surface-1)' }}>
-                Semantic source bindings preview — Goods_Product,
-                Opportunity_Product, and Sales_Extended view from the C360
-                Model.
-              </div>
+              <QueryPanel sql={question.response.sql} />
             )}
 
           </div>
