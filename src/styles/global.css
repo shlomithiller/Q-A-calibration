@@ -1039,6 +1039,7 @@ a:hover {
 
 .eval-panel-body.no-pad {
   padding: 0;
+  overflow: hidden;
 }
 
 .eval-panel-body.eval-panel-body-flex {
@@ -1052,6 +1053,7 @@ a:hover {
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 
 .sql-edit-toolbar {
@@ -1212,6 +1214,7 @@ a:hover {
   pointer-events: none;
   white-space: pre;
   min-width: 100%;
+  min-height: 100%;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -1429,7 +1432,6 @@ a:hover {
 }
 
 .sql-editor-highlight-wrap.sql-wrap-dirty {
-  border-left: 3px solid #f59e0b;
 }
 
 .qa-preview-stale-banner {
@@ -1445,8 +1447,42 @@ a:hover {
   margin-bottom: 10px;
 }
 
+.qa-preview-dirty-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+.qa-preview-dirty-illustration {
+  width: 240px;
+  flex-shrink: 0;
+}
+.qa-preview-dirty-title {
+  margin: 12px 0 4px;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 32px;
+  color: #03234d;
+  text-align: center;
+}
+.qa-preview-dirty-sub {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: #03234d;
+  text-align: center;
+}
+
 .qa-preview-table-card-stale {
-  opacity: 0.55;
   pointer-events: none;
 }
 
@@ -3059,13 +3095,23 @@ a:hover {
 /* Verification toggle section */
 .verification-toggle-section {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: 12px;
   padding: var(--space-4) 0;
   border-top: 2px solid var(--color-surface-2);
   margin-top: auto;
   background: #fff;
   border-radius: 0 0 var(--radius-4) var(--radius-4);
+}
+.verification-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.verification-confirm-btn {
+  align-self: center;
+  font-size: 13px;
+  padding: 5px 14px;
 }
 
 .verification-toggle-left {
@@ -3191,9 +3237,9 @@ a:hover {
   align-items: center;
   gap: 7px;
   padding: 10px 12px;
-  background: #e8f4fd;
-  border-bottom: 1px solid #c9e3f8;
-  color: #0B5CAB;
+  background: #E5E5E5;
+  border-bottom: 1px solid #d0d0d0;
+  color: #5C5C5C;
   font-size: 11px;
   font-weight: 600;
   line-height: 18px;

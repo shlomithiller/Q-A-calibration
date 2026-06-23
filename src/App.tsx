@@ -80,7 +80,7 @@ export default function App() {
     setSaving(null);
     setMode(q?.classification === 'regression' ? 'regression-analysis' : 'classify');
     setCorrection('');
-    setVerified(false);
+    setVerified(q?.classification === 'accurate');
     setSqlEditActive(false);
     const t = setTimeout(() => setLoading(false), 700);
     return () => clearTimeout(t);
@@ -147,6 +147,11 @@ export default function App() {
   const handleAccurate = () => {
     if (saving || !currentQuestion) return;
     setSelected('accurate');
+    setVerified(true);
+  };
+
+  const handleConfirmAccurate = () => {
+    if (saving || !currentQuestion) return;
     setSaving('accurate');
     setTimeout(() => {
       setSaving(null);
@@ -397,6 +402,7 @@ export default function App() {
           onCorrectionChange={setCorrection}
           onInaccurateClick={handleInaccurateClick}
           onAccurateClick={handleAccurate}
+          onConfirmAccurate={handleConfirmAccurate}
           onChangeClassification={handleBackToClassify}
           onChooseCalibration={handleChooseCalibration}
           onSuggestCalibration={handleSuggestCalibration}

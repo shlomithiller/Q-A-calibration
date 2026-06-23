@@ -85,7 +85,7 @@ export function QuestionDetail({
   const [testQueryState, setTestQueryState] = useState<'idle' | 'running' | 'done'>('idle');
   const [syntaxOk, setSyntaxOk] = useState(false);
   const [sqlDirty, setSqlDirty] = useState(false);
-  const [draftExpanded, setDraftExpanded] = useState(false);
+  const [draftExpanded, setDraftExpanded] = useState(true);
   const [draftText, setDraftText] = useState('');
   const [draftState, setDraftState] = useState<'idle' | 'drafting'>('idle');
 
@@ -258,10 +258,12 @@ export function QuestionDetail({
                 </div>
               </div>
             ) : sqlEditMode ? (
-              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 0, position: 'relative' }}>
                 {sqlDirty && (
-                  <div className="qa-preview-stale-banner">
-                    <Warning size={13} /> Query has unsaved changes — run Test Query to update preview
+                  <div className="qa-preview-dirty-watermark">
+                    <img src="/illustrations/dirty-query/combined.svg" className="qa-preview-dirty-illustration" alt="" />
+                    <p className="qa-preview-dirty-title">Query has unsaved changes</p>
+                    <p className="qa-preview-dirty-sub">Run test query to update preview</p>
                   </div>
                 )}
                 <div className={`qa-preview-table-card${sqlDirty ? ' qa-preview-table-card-stale' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -372,8 +374,8 @@ export function QuestionDetail({
                   <div className="sql-edit-scoped-notification">
                     <span className="sql-edit-scoped-notification-icon">
                       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9.5 1.5L12.5 4.5L4.5 12.5H1.5V9.5L9.5 1.5Z" stroke="#0176d3" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M7.5 3.5L10.5 6.5" stroke="#0176d3" strokeWidth="1.25" strokeLinecap="round"/>
+                        <path d="M9.5 1.5L12.5 4.5L4.5 12.5H1.5V9.5L9.5 1.5Z" stroke="#5C5C5C" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M7.5 3.5L10.5 6.5" stroke="#5C5C5C" strokeWidth="1.25" strokeLinecap="round"/>
                       </svg>
                     </span>
                     <span>Query Edit Mode — you can manually edit the query or draft with AI</span>
@@ -391,7 +393,7 @@ export function QuestionDetail({
                       <div className="scv-draft-body">
                         <textarea
                           className="scv-draft-textarea"
-                          placeholder="Example: Create a Calculated Field that shows sales per Region."
+                          placeholder="Example: Replace filter x with filter y"
                           value={draftText}
                           onChange={e => setDraftText(e.target.value)}
                           rows={3}
