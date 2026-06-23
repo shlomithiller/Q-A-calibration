@@ -435,6 +435,7 @@ export function QuestionDetail({
                                 setTestQueryState('idle');
                                 setSyntaxOk(false);
                                 setSqlDirty(true);
+                                hasEverTestedRef.current = true;
                                 setDraftState('idle');
                                 setDraftText('');
                               }, 1600);
