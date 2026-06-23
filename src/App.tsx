@@ -53,6 +53,7 @@ export default function App() {
   const [showDiffModal, setShowDiffModal] = useState(false);
   const [sqlCurationValue, setSqlCurationValue] = useState('');
   const [sqlEditActive, setSqlEditActive] = useState(false);
+  const [sqlQueryTested, setSqlQueryTested] = useState(false);
 
   const currentQuestion =
     view.kind === 'detail'
@@ -148,6 +149,11 @@ export default function App() {
     if (saving || !currentQuestion) return;
     setSelected('accurate');
     setVerified(true);
+    setSaving('accurate');
+    setTimeout(() => {
+      setSaving(null);
+      moveToGoldenDataSet();
+    }, 850);
   };
 
   const handleConfirmAccurate = () => {
@@ -178,6 +184,7 @@ export default function App() {
   const handleChooseSqlCuration = () => {
     setSqlCurationValue(currentQuestion?.response.sql ?? '');
     setSqlEditActive(true);
+    setSqlQueryTested(false);
     setSelected(null);
     setMode('classify');
   };
@@ -357,10 +364,11 @@ export default function App() {
         fromTest={cameFromTest}
         sqlEditMode={sqlEditActive}
         sqlEditValue={sqlCurationValue}
-        onSqlEditChange={setSqlCurationValue}
+        onSqlEditChange={(v) => { setSqlCurationValue(v); setSqlQueryTested(false); }}
         onSqlCurationSave={handleSqlCurationSave}
         onNextQuestion={handleNextQuestion}
         hasNextQuestion={!!nextQuestion}
+        onQueryTested={() => setSqlQueryTested(true)}
       />
     );
   };
@@ -416,6 +424,7 @@ export default function App() {
           onSqlCurationChange={setSqlCurationValue}
           onSqlCurationSave={handleSqlCurationSave}
           sqlEditActive={sqlEditActive}
+          sqlQueryTested={sqlQueryTested}
         />
       )
     ) : view.kind === 'regression-test' && showCalibrationPanel ? (

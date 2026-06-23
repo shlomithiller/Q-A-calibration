@@ -11,10 +11,12 @@ import {
   Warning,
   VerifiedCheck,
   CircleCheck,
+  CircleX,
   Undo,
   Redo,
   Play,
   SparkleSingle,
+  Copy,
 } from './Icons';
 import { QueryPanel, highlightLine } from './QueryPanel';
 import { ChartPreview } from './ChartPreview';
@@ -34,6 +36,7 @@ export interface QuestionDetailProps {
   onSqlCurationSave?: () => void;
   onNextQuestion?: () => void;
   hasNextQuestion?: boolean;
+  onQueryTested?: () => void;
 }
 
 type RightTab = 'sources' | 'query';
@@ -52,6 +55,7 @@ export function QuestionDetail({
   onSqlCurationSave,
   onNextQuestion,
   hasNextQuestion = false,
+  onQueryTested,
 }: QuestionDetailProps) {
   const [rightTab, setRightTab] = useState<RightTab>('query');
   const [splitPct, setSplitPct] = useState(50);
@@ -84,10 +88,19 @@ export function QuestionDetail({
   const histTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [testQueryState, setTestQueryState] = useState<'idle' | 'running' | 'done'>('idle');
   const [syntaxOk, setSyntaxOk] = useState(false);
+  const testRunCountRef = useRef(0);
   const [sqlDirty, setSqlDirty] = useState(false);
   const [draftExpanded, setDraftExpanded] = useState(true);
   const [draftText, setDraftText] = useState('');
   const [draftState, setDraftState] = useState<'idle' | 'drafting'>('idle');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(sqlEditValue).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  };
 
   const pushHistory = (val: string) => {
     const stack = historyRef.current.slice(0, histIdx + 1);
@@ -128,14 +141,14 @@ export function QuestionDetail({
     setTestQueryState('running');
     setSyntaxOk(false);
     setSqlDirty(false);
+    testRunCountRef.current += 1;
+    const runIndex = testRunCountRef.current;
     setTimeout(() => {
-      const upper = sqlEditValue.toUpperCase();
-      const ok =
-        upper.includes('SELECT') &&
-        (upper.includes('FROM') || upper.includes('SEMANTIC_VIEW')) &&
-        (sqlEditValue.match(/\(/g) || []).length === (sqlEditValue.match(/\)/g) || []).length;
+      // First run always fails to demonstrate the error state; subsequent runs pass
+      const ok = runIndex > 1;
       setSyntaxOk(ok);
       setTestQueryState('done');
+      if (ok) onQueryTested?.();
     }, 1200);
   };
 
@@ -170,8 +183,8 @@ export function QuestionDetail({
             <button className="btn-pill-outline">Test Question</button>
           )}
           {hasNextQuestion && !sqlEditMode && (
-            <button className="btn-pill-brand" onClick={onNextQuestion}>
-              Next Question
+            <button className="btn-pill-outline" onClick={onNextQuestion}>
+              Re-run
             </button>
           )}
           <button
@@ -327,12 +340,23 @@ export function QuestionDetail({
             {sqlEditMode ? (
               <div className="sql-combined-bar">
                 <div className="sql-combined-bar-left">
-                  <span className="sql-query-badge"><Code size={12} /> Query</span>
+                  <span className="sql-query-badge">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9.5 1.5L12.5 4.5L4.5 12.5H1.5V9.5L9.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M7.5 3.5L10.5 6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                    </svg>
+                    Editing Query
+                  </span>
                 </div>
                 <div className="sql-edit-toolbar-actions">
                   {testQueryState === 'done' && syntaxOk && (
                     <span className="sql-syntax-ok-icon" title="Syntax valid">
                       <CircleCheck size={22} />
+                    </span>
+                  )}
+                  {testQueryState === 'done' && !syntaxOk && (
+                    <span className="sql-syntax-err-icon" title="Query invalid">
+                      <CircleX size={22} />
                     </span>
                   )}
                   <button className="sql-edit-icon-btn" aria-label="Undo" disabled={histIdx <= 0} onClick={handleUndo}>
@@ -371,15 +395,6 @@ export function QuestionDetail({
               </div>
             ) : sqlEditMode ? (
                 <div className="sql-edit-wrap">
-                  <div className="sql-edit-scoped-notification">
-                    <span className="sql-edit-scoped-notification-icon">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9.5 1.5L12.5 4.5L4.5 12.5H1.5V9.5L9.5 1.5Z" stroke="#5C5C5C" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M7.5 3.5L10.5 6.5" stroke="#5C5C5C" strokeWidth="1.25" strokeLinecap="round"/>
-                      </svg>
-                    </span>
-                    <span>Query Edit Mode — you can manually edit the query or draft with AI</span>
-                  </div>
                   <div className="scv-draft-card" style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', flexShrink: 0 }}>
                     <button
                       className="scv-draft-toggle"
@@ -429,6 +444,7 @@ export function QuestionDetail({
                       </div>
                     )}
                   </div>
+                  <div className="sql-editor-copy-wrap">
                   <div className={`sql-editor-highlight-wrap${sqlDirty ? ' sql-wrap-dirty' : ''}`}>
                     <div className="sql-editor-highlight-mirror code-editor" ref={mirrorRef}>
                       <div className="line-numbers">
@@ -454,6 +470,15 @@ export function QuestionDetail({
                       autoComplete="off"
                       autoFocus
                     />
+                  </div>
+                  <button
+                    className={`sql-copy-btn${copied ? ' sql-copy-btn-copied' : ''}`}
+                    onClick={handleCopySql}
+                    title="Copy SQL"
+                    aria-label="Copy SQL"
+                  >
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
                   </div>
                 </div>
             ) : (

@@ -200,6 +200,14 @@ export const CircleCheck = ({ size = 20 }: IconProps) => (
   </svg>
 );
 
+export const CircleX = ({ size = 20 }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="10" r="10" fill="#e05252" />
+    <line x1="6.5" y1="6.5" x2="13.5" y2="13.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    <line x1="13.5" y1="6.5" x2="6.5" y2="13.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
 export const Info = (props: IconProps) => (
   <svg {...base(props)}>
     <circle cx="12" cy="12" r="10" />
@@ -232,6 +240,13 @@ export const Redo = (props: IconProps) => (
   <svg {...base(props)}>
     <polyline points="15 14 20 9 15 4" />
     <path d="M4 20v-7a4 4 0 0 1 4-4h12" />
+  </svg>
+);
+
+export const Copy = (props: IconProps) => (
+  <svg {...base(props)} strokeWidth={1.5}>
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
   </svg>
 );
 

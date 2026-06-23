@@ -41,6 +41,7 @@ interface ClassificationPanelProps {
   onSqlCurationChange: (v: string) => void;
   onSqlCurationSave: () => void;
   sqlEditActive?: boolean;
+  sqlQueryTested?: boolean;
 }
 
 export function ClassificationPanel({
@@ -71,6 +72,7 @@ export function ClassificationPanel({
   onSqlCurationChange,
   onSqlCurationSave,
   sqlEditActive = false,
+  sqlQueryTested = false,
 }: ClassificationPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -112,14 +114,20 @@ export function ClassificationPanel({
               How would you classify the agent's response?
             </p>
           )}
+          {sqlEditActive && !sqlQueryTested && (
+            <div className="sql-edit-mode-notice">
+              <Warning size={13} />
+              <span>You're in inaccurate mode — fix the query to move to the next question</span>
+            </div>
+          )}
           <div className="classification-cards equal-height">
-            {(!sqlEditActive || true) && (
+            {!sqlEditActive && (
             <button
               className={`classification-option inaccurate ${
                 selected === 'inaccurate' ? 'selected' : ''
-              } ${isGolden || sqlEditActive ? 'disabled-muted' : ''}`}
-              onClick={isGolden || sqlEditActive ? undefined : onInaccurateClick}
-              disabled={Boolean(saving) || isGolden || sqlEditActive}
+              } ${isGolden ? 'disabled-muted' : ''}`}
+              onClick={isGolden ? undefined : onInaccurateClick}
+              disabled={Boolean(saving) || isGolden}
             >
               <div className="option-icon">
                 <Warning size={16} />
@@ -142,9 +150,9 @@ export function ClassificationPanel({
             <button
               className={`classification-option accurate ${
                 selected === 'accurate' || isGolden ? 'selected' : ''
-              } ${isGolden ? 'disabled-selected' : ''}`}
-              onClick={isGolden ? undefined : onAccurateClick}
-              disabled={Boolean(saving) || isGolden}
+              } ${isGolden ? 'disabled-selected' : ''} ${sqlEditActive && !sqlQueryTested ? 'disabled-muted' : ''}`}
+              onClick={isGolden || (sqlEditActive && !sqlQueryTested) ? undefined : onAccurateClick}
+              disabled={Boolean(saving) || isGolden || (sqlEditActive && !sqlQueryTested)}
             >
               <div className="option-icon">
                 <Check size={16} />
@@ -180,6 +188,7 @@ export function ClassificationPanel({
               </label>
             </div>
           </div>
+        }
         </div>
       )}
 
@@ -210,14 +219,12 @@ export function ClassificationPanel({
 
       {mode === 'fork-decision' && (
         <>
-          <div className="inaccurate-status">
-            {questionClassification === 'regression'
-              ? <span className="badge-error">Regression</span>
-              : <span className="badge-warning">Inaccurate</span>}
-            {questionClassification === 'regression' && (
+          {questionClassification === 'regression' && (
+            <div className="inaccurate-status">
+              <span className="badge-error">Regression</span>
               <button className="link-button" onClick={onChangeClassification}>Change</button>
-            )}
-          </div>
+            </div>
+          )}
           <div className="classification-body">
             <p className="classification-prompt">
               How would you like to resolve this inaccuracy?
@@ -268,11 +275,6 @@ export function ClassificationPanel({
 
       {mode === 'nl-input' && (
         <>
-          <div className="inaccurate-status">
-            {questionClassification === 'regression'
-              ? <span className="badge-error">Regression</span>
-              : <span className="badge-warning">Inaccurate</span>}
-          </div>
           <div className="inaccurate-body">
             <p className="inaccurate-prompt">
               Describe the issue and the desired correct behavior
@@ -328,11 +330,6 @@ export function ClassificationPanel({
 
       {mode === 'suggesting' && (
         <>
-          <div className="inaccurate-status">
-            {questionClassification === 'regression'
-              ? <span className="badge-error">Regression</span>
-              : <span className="badge-warning">Inaccurate</span>}
-          </div>
           <div className="classification-body">
             <div className="calibration-analyzing">
               <div className="calibration-analyzing-sparkles">
@@ -401,11 +398,6 @@ export function ClassificationPanel({
 
       {mode === 'calibrating' && (
         <>
-          <div className="inaccurate-status">
-            {questionClassification === 'regression'
-              ? <span className="badge-error">Regression</span>
-              : <span className="badge-warning">Inaccurate</span>}
-          </div>
           <div className="classification-body">
             <div className="calibration-analyzing">
               <div className="calibration-analyzing-sparkles">
@@ -423,11 +415,6 @@ export function ClassificationPanel({
 
       {mode === 're-evaluating' && (
         <>
-          <div className="inaccurate-status">
-            {questionClassification === 'regression'
-              ? <span className="badge-error">Regression</span>
-              : <span className="badge-warning">Inaccurate</span>}
-          </div>
           <div className="classification-body">
             <div className="calibration-analyzing">
               <div className="spinner" />
@@ -662,12 +649,6 @@ function SqlCurationPanel({
 
   return (
     <>
-      <div className="inaccurate-status">
-        {questionClassification === 'regression'
-          ? <span className="badge-error">Regression</span>
-          : <span className="badge-warning">Inaccurate</span>}
-      </div>
-
       {/* AI prompt section */}
       <div className="ai-sql-prompt-section">
         <div className="ai-sql-prompt-header">
