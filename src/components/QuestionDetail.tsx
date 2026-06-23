@@ -284,11 +284,7 @@ export function QuestionDetail({
               <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 0, position: 'relative' }}>
                 <div className="qa-preview-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   <div className="qa-preview-table-header">
-                    <div className="qa-preview-table-header-left">
-                      <span className="qa-preview-table-title">Preview</span>
-                      <span className="qa-preview-table-meta">Last run on 06/04/2025, 09:42 AM</span>
-                    </div>
-                    <span className="qa-preview-table-counts">2 fields {question.response.chartData.length} rows</span>
+                    <span className="qa-preview-table-title">Preview - sample data</span>
                   </div>
                   <div className="qa-preview-table-divider" />
                   <div className="scv-preview-table-wrap" style={{ flex: 1, minHeight: 0 }}>
