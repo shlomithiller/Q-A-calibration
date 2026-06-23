@@ -95,6 +95,16 @@ export function QuestionDetail({
   const [draftState, setDraftState] = useState<'idle' | 'drafting'>('idle');
   const [copied, setCopied] = useState(false);
 
+  const handleResetSql = () => {
+    onSqlEditChange?.(question.response.sql);
+    setTestQueryState('idle');
+    setSyntaxOk(false);
+    setSqlDirty(false);
+    historyRef.current = [question.response.sql];
+    setHistIdx(0);
+    testRunCountRef.current = 0;
+  };
+
   const handleCopySql = () => {
     navigator.clipboard.writeText(sqlEditValue).then(() => {
       setCopied(true);
@@ -270,16 +280,9 @@ export function QuestionDetail({
                   </div>
                 </div>
               </div>
-            ) : sqlEditMode ? (
+            ) : sqlEditMode && testQueryState === 'done' ? (
               <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 0, position: 'relative' }}>
-                {sqlDirty && (
-                  <div className="qa-preview-dirty-watermark">
-                    <img src="/illustrations/dirty-query/combined.svg" className="qa-preview-dirty-illustration" alt="" />
-                    <p className="qa-preview-dirty-title">Query has unsaved changes</p>
-                    <p className="qa-preview-dirty-sub">Run test query to update preview</p>
-                  </div>
-                )}
-                <div className={`qa-preview-table-card${sqlDirty ? ' qa-preview-table-card-stale' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <div className="qa-preview-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   <div className="qa-preview-table-header">
                     <div className="qa-preview-table-header-left">
                       <span className="qa-preview-table-title">Preview</span>
@@ -349,6 +352,23 @@ export function QuestionDetail({
                   </span>
                 </div>
                 <div className="sql-edit-toolbar-actions">
+                  <button
+                    className="sql-edit-reset-btn"
+                    disabled={!sqlDirty}
+                    onClick={handleResetSql}
+                    title="Reset to original"
+                  >
+                    <Undo size={12} /> Reset
+                  </button>
+                  <button
+                    className={`sql-edit-test-btn${testQueryState === 'running' ? ' running' : ''}`}
+                    disabled={!sqlEditValue.trim() || testQueryState === 'running' || !sqlDirty}
+                    onClick={handleTestQuery}
+                  >
+                    {testQueryState === 'running'
+                      ? <><div className="spinner" style={{ width: 10, height: 10, borderWidth: 2, borderTopColor: '#fff' }} /> Running…</>
+                      : <><Play size={11} /> Test Query</>}
+                  </button>
                   {testQueryState === 'done' && syntaxOk && (
                     <span className="sql-syntax-ok-icon" title="Syntax valid">
                       <CircleCheck size={22} />
@@ -359,21 +379,6 @@ export function QuestionDetail({
                       <CircleX size={22} />
                     </span>
                   )}
-                  <button className="sql-edit-icon-btn" aria-label="Undo" disabled={histIdx <= 0} onClick={handleUndo}>
-                    <Undo size={13} />
-                  </button>
-                  <button className="sql-edit-icon-btn" aria-label="Redo" disabled={histIdx >= historyRef.current.length - 1} onClick={handleRedo}>
-                    <Redo size={13} />
-                  </button>
-                  <button
-                    className={`sql-edit-test-btn${testQueryState === 'running' ? ' running' : ''}`}
-                    disabled={!sqlEditValue.trim() || testQueryState === 'running'}
-                    onClick={handleTestQuery}
-                  >
-                    {testQueryState === 'running'
-                      ? <><div className="spinner" style={{ width: 10, height: 10, borderWidth: 2, borderTopColor: '#fff' }} /> Running…</>
-                      : <><Play size={11} /> Test Query</>}
-                  </button>
                 </div>
               </div>
             ) : (
@@ -402,7 +407,7 @@ export function QuestionDetail({
                       aria-expanded={draftExpanded}
                     >
                       <span className="scv-draft-toggle-icon">{draftExpanded ? '▾' : '▸'}</span>
-                      <span className="scv-draft-toggle-label">Draft with AI</span>
+                      <span className="scv-draft-toggle-label">Describe query requirements</span>
                     </button>
                     {draftExpanded && (
                       <div className="scv-draft-body">
@@ -438,7 +443,7 @@ export function QuestionDetail({
                             }}
                           >
                             <SparkleSingle size={14} />
-                            {draftState === 'drafting' ? 'Drafting…' : 'Draft with AI'}
+                            {draftState === 'drafting' ? 'Drafting…' : 'Run'}
                           </button>
                         </div>
                       </div>

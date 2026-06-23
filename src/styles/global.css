@@ -1128,6 +1128,23 @@ a:hover {
 .sql-edit-icon-btn:hover:not(:disabled) { background: #f0f2f7; color: #0e1723; }
 .sql-edit-icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+.sql-edit-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid #d0d5e0;
+  background: #fff;
+  color: #5c5c5c;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.sql-edit-reset-btn:hover:not(:disabled) { background: #f4f5f8; }
+.sql-edit-reset-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
 .sql-edit-test-btn {
   display: inline-flex;
   align-items: center;

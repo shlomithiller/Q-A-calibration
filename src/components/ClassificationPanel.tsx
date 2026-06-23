@@ -108,6 +108,7 @@ export function ClassificationPanel({
       )}
 
       {mode === 'classify' && (
+        <>
         <div className="classification-body">
           {!sqlEditActive && (
             <p className="classification-prompt">
@@ -190,6 +191,12 @@ export function ClassificationPanel({
           </div>
         }
         </div>
+          {sqlEditActive && (
+            <div className="classification-actions">
+              <button className="btn-pill-outline" onClick={onBackToFork}>Back</button>
+            </div>
+          )}
+        </>
       )}
 
       {mode === 'regression-analysis' && (
