@@ -75,6 +75,7 @@ export function ClassificationPanel({
   sqlQueryTested = false,
 }: ClassificationPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [showAccurateConfirm, setShowAccurateConfirm] = useState(false);
 
   useEffect(() => {
     if (mode === 'nl-input' && textareaRef.current) {
@@ -108,7 +109,7 @@ export function ClassificationPanel({
       )}
 
       {mode === 'classify' && (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <div className="classification-body">
           {!sqlEditActive && (
             <p className="classification-prompt">
@@ -117,11 +118,13 @@ export function ClassificationPanel({
           )}
           <div className="classification-cards equal-height">
             {sqlEditActive && (
-              <div style={{ position: 'relative' }}>
-                <button className="change-status-link" onClick={onBackToFork}>
-                  Change status
-                </button>
-              <div className="classification-option inaccurate selected disabled-selected">
+              <div style={{ display: 'contents' }}><div style={{ position: 'relative' }}>
+                {selected !== 'accurate' && (
+                  <button className="change-status-link" onClick={() => setShowAccurateConfirm(true)}>
+                    Switch to accurate
+                  </button>
+                )}
+              <div className={`classification-option inaccurate ${selected === 'accurate' ? 'deselected-outline' : 'selected disabled-selected'}`}>
                 <div className="option-icon">
                   <Warning size={16} />
                 </div>
@@ -129,9 +132,9 @@ export function ClassificationPanel({
                   <div className="option-title">Inaccurate</div>
                   <div className="option-desc">Use this example to diagnose the issue and test semantic model calibrations.</div>
                 </div>
-                <div className="option-check"><Check size={14} /></div>
+                {selected !== 'accurate' && <div className="option-check"><Check size={14} /></div>}
               </div>
-              </div>
+              </div></div>
             )}
             {!sqlEditActive && (
             <button
@@ -162,9 +165,9 @@ export function ClassificationPanel({
             <button
               className={`classification-option accurate ${
                 selected === 'accurate' || isGolden ? 'selected' : ''
-              } ${isGolden ? 'disabled-selected' : ''} ${sqlEditActive && !sqlQueryTested ? 'disabled-muted' : ''}`}
-              onClick={isGolden || (sqlEditActive && !sqlQueryTested) ? undefined : onAccurateClick}
-              disabled={Boolean(saving) || isGolden || (sqlEditActive && !sqlQueryTested)}
+              } ${isGolden ? 'disabled-selected' : ''} ${sqlEditActive && !sqlQueryTested && selected !== 'accurate' ? 'accurate-pending' : ''}`}
+              onClick={isGolden || (sqlEditActive && !sqlQueryTested && selected !== 'accurate') ? undefined : onAccurateClick}
+              disabled={Boolean(saving) || isGolden || (sqlEditActive && !sqlQueryTested && selected !== 'accurate')}
             >
               <div className="option-icon">
                 <Check size={16} />
@@ -183,31 +186,37 @@ export function ClassificationPanel({
             </button>
           </div>
 
-          {(selected === 'accurate' || isGolden) && <div className="verification-toggle-section">
-            <div className="verification-toggle-row">
-              <div className="verification-toggle-left">
-                <div className="verification-toggle-icon">
-                  <Shield size={16} />
-                </div>
-                <div className="verification-toggle-content">
-                  <div className="verification-toggle-title">Mark as Verified</div>
-                  <div className="verification-toggle-desc">This example will be saved as a verified reference to guide future agent responses.</div>
-                </div>
-              </div>
-              <label className="toggle">
-                <input type="checkbox" checked={verified} onChange={(e) => onVerifiedChange(e.target.checked)} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-          </div>
-        }
         </div>
-          {sqlEditActive && (
-            <div className="classification-actions">
+
+          {(selected === 'accurate' || isGolden || (sqlEditActive && sqlQueryTested)) && (
+            <div className="accurate-bottom-section">
+              <div className="verification-toggle-row">
+                <div className="verification-toggle-left">
+                  <div className="verification-toggle-icon">
+                    <Shield size={16} />
+                  </div>
+                  <div className="verification-toggle-content">
+                    <div className="verification-toggle-title">Mark as Verified</div>
+                    <div className="verification-toggle-desc">This example will be saved as a verified reference to guide future agent responses.</div>
+                  </div>
+                </div>
+                <label className="toggle">
+                  <input type="checkbox" checked={verified} onChange={(e) => onVerifiedChange(e.target.checked)} />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+              <div className="classification-actions">
+                <button className="btn-pill-outline" onClick={sqlEditActive ? onBackToFork : onChangeClassification}>Back</button>
+                <button className="btn-pill-brand" onClick={onConfirmAccurate}>Next Question</button>
+              </div>
+            </div>
+          )}
+          {sqlEditActive && !selected && !sqlQueryTested && (
+            <div className="classification-actions" style={{ padding: '16px 20px' }}>
               <button className="btn-pill-outline" onClick={onBackToFork}>Back</button>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {mode === 'regression-analysis' && (
@@ -452,6 +461,22 @@ export function ClassificationPanel({
           onSqlCurationSave={onSqlCurationSave}
           onBackToFork={onBackToFork}
         />
+      )}
+
+      {showAccurateConfirm && (
+        <div className="modal-backdrop" onClick={() => setShowAccurateConfirm(false)}>
+          <div className="mark-accurate-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="mark-accurate-modal-title">Mark As Accurate</div>
+            <p className="mark-accurate-modal-body">
+              You're about to change the question to accurate.<br />
+              Ensure the answer is correct before accepting
+            </p>
+            <div className="mark-accurate-modal-actions">
+              <button className="btn-pill-outline" onClick={() => setShowAccurateConfirm(false)}>Cancel</button>
+              <button className="btn-pill-brand" onClick={() => { setShowAccurateConfirm(false); onAccurateClick(); }}>Approve</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -149,11 +149,6 @@ export default function App() {
     if (saving || !currentQuestion) return;
     setSelected('accurate');
     setVerified(true);
-    setSaving('accurate');
-    setTimeout(() => {
-      setSaving(null);
-      moveToGoldenDataSet();
-    }, 850);
   };
 
   const handleConfirmAccurate = () => {

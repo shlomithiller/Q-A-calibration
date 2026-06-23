@@ -89,6 +89,7 @@ export function QuestionDetail({
   const [testQueryState, setTestQueryState] = useState<'idle' | 'running' | 'done'>('idle');
   const [syntaxOk, setSyntaxOk] = useState(false);
   const testRunCountRef = useRef(0);
+  const hasEverTestedRef = useRef(false);
   const [sqlDirty, setSqlDirty] = useState(false);
   const [draftExpanded, setDraftExpanded] = useState(true);
   const [draftText, setDraftText] = useState('');
@@ -151,6 +152,7 @@ export function QuestionDetail({
     setTestQueryState('running');
     setSyntaxOk(false);
     setSqlDirty(false);
+    hasEverTestedRef.current = true;
     testRunCountRef.current += 1;
     const runIndex = testRunCountRef.current;
     setTimeout(() => {
@@ -280,11 +282,11 @@ export function QuestionDetail({
                   </div>
                 </div>
               </div>
-            ) : sqlEditMode && testQueryState === 'done' ? (
+            ) : sqlEditMode && hasEverTestedRef.current ? (
               <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 0, position: 'relative' }}>
                 <div className="qa-preview-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   <div className="qa-preview-table-header">
-                    <span className="qa-preview-table-title">Preview - sample data</span>
+                    <span className="qa-preview-table-title">Sample data</span>
                   </div>
                   <div className="qa-preview-table-divider" />
                   <div className="scv-preview-table-wrap" style={{ flex: 1, minHeight: 0 }}>
