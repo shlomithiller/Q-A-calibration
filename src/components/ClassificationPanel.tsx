@@ -115,13 +115,24 @@ export function ClassificationPanel({
               How would you classify the agent's response?
             </p>
           )}
-          {sqlEditActive && !sqlQueryTested && (
-            <div className="sql-edit-mode-notice">
-              <Warning size={13} />
-              <span>You're in inaccurate mode — fix the query to move to the next question</span>
-            </div>
-          )}
           <div className="classification-cards equal-height">
+            {sqlEditActive && (
+              <div style={{ position: 'relative' }}>
+                <button className="change-status-link" onClick={onBackToFork}>
+                  Change status
+                </button>
+              <div className="classification-option inaccurate selected disabled-selected">
+                <div className="option-icon">
+                  <Warning size={16} />
+                </div>
+                <div className="option-content">
+                  <div className="option-title">Inaccurate</div>
+                  <div className="option-desc">Use this example to diagnose the issue and test semantic model calibrations.</div>
+                </div>
+                <div className="option-check"><Check size={14} /></div>
+              </div>
+              </div>
+            )}
             {!sqlEditActive && (
             <button
               className={`classification-option inaccurate ${
