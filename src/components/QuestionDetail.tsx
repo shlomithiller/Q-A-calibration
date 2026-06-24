@@ -382,6 +382,13 @@ export function QuestionDetail({
             ) : (
               <div className="panel-tabs">
                 <button
+                  className={`panel-tab ${rightTab === 'sources' ? 'active' : ''}`}
+                  onClick={() => setRightTab('sources')}
+                >
+                  <Database size={14} />
+                  Semantic Sources
+                </button>
+                <button
                   className={`panel-tab ${rightTab === 'query' ? 'active' : ''}`}
                   onClick={() => setRightTab('query')}
                 >
@@ -485,6 +492,10 @@ export function QuestionDetail({
                   </button>
                   </div>
                 </div>
+            ) : rightTab === 'sources' ? (
+              <div style={{ padding: 24, color: 'var(--color-on-surface-1)' }}>
+                Semantic source bindings preview — Goods_Product, Opportunity_Product, and Sales_Extended view from the C360 Model.
+              </div>
             ) : (
               <QueryPanel sql={question.response.sql} />
             )}
