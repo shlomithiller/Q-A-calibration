@@ -119,11 +119,6 @@ export function ClassificationPanel({
           <div className="classification-cards equal-height">
             {sqlEditActive && (
               <div style={{ display: 'contents' }}><div style={{ position: 'relative' }}>
-                {selected !== 'accurate' && (
-                  <button className="change-status-link" onClick={() => setShowAccurateConfirm(true)}>
-                    Switch to accurate
-                  </button>
-                )}
               <div className={`classification-option inaccurate ${selected === 'accurate' ? 'deselected-outline' : 'selected disabled-selected'}`}>
                 <div className="option-icon">
                   <Warning size={16} />
@@ -165,9 +160,9 @@ export function ClassificationPanel({
             <button
               className={`classification-option accurate ${
                 selected === 'accurate' || isGolden ? 'selected' : ''
-              } ${isGolden ? 'disabled-selected' : ''} ${sqlEditActive && !sqlQueryTested && selected !== 'accurate' ? 'accurate-pending' : ''}`}
-              onClick={isGolden || (sqlEditActive && !sqlQueryTested && selected !== 'accurate') ? undefined : onAccurateClick}
-              disabled={Boolean(saving) || isGolden || (sqlEditActive && !sqlQueryTested && selected !== 'accurate')}
+              } ${isGolden ? 'disabled-selected' : ''} ${sqlEditActive && !sqlQueryTested ? 'accurate-pending' : ''}`}
+              onClick={isGolden || (sqlEditActive && !sqlQueryTested) ? undefined : onAccurateClick}
+              disabled={Boolean(saving) || isGolden || (sqlEditActive && !sqlQueryTested)}
             >
               <div className="option-icon">
                 <Check size={16} />
@@ -188,7 +183,7 @@ export function ClassificationPanel({
 
         </div>
 
-          {(selected === 'accurate' || isGolden || (sqlEditActive && sqlQueryTested)) && (
+          {(selected === 'accurate' || isGolden) && (
             <div className="accurate-bottom-section">
               <div className="verification-toggle-row">
                 <div className="verification-toggle-left">
@@ -211,7 +206,7 @@ export function ClassificationPanel({
               </div>
             </div>
           )}
-          {sqlEditActive && !selected && !sqlQueryTested && (
+          {sqlEditActive && selected !== 'accurate' && !isGolden && (
             <div className="classification-actions" style={{ padding: '16px 20px' }}>
               <button className="btn-pill-outline" onClick={onBackToFork}>Back</button>
             </div>
