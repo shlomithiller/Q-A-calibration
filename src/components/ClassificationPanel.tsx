@@ -1,27 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Classification } from '../data/questions';
 import { Warning, Shield, Check, SparkleSingle, Sparkles, Code, ChevronRight } from './Icons';
+import { DotSpinner } from './DotSpinner';
 
 export type PanelMode =
   | 'classify'
   | 'regression-analysis'
-  | 'fork-decision'
   | 'nl-input'
   | 'suggesting'
   | 'suggestion-preview'
   | 'calibrating'
   | 're-evaluating'
-  | 'sql-curation';
+  | 'verifying';
 
 interface ClassificationPanelProps {
   mode: PanelMode;
+  loading?: boolean;
+  onSkipLoading?: () => void;
+  onNextQuestion?: () => void;
+  hasNextQuestion?: boolean;
   selected: Classification | null;
   saving: Classification | null;
   remainingCount: number;
   totalCount: number;
   questionClassification?: Classification;
-  verified: boolean;
-  onVerifiedChange: (v: boolean) => void;
   fromTest?: boolean;
   correction: string;
   onCorrectionChange: (next: string) => void;
@@ -29,30 +31,27 @@ interface ClassificationPanelProps {
   onAccurateClick: () => void;
   onConfirmAccurate?: () => void;
   onChangeClassification: () => void;
-  onChooseCalibration: () => void;
   onSuggestCalibration: () => void;
   onBackToNlInput: () => void;
-  onBackToFork: () => void;
+  onSuggestMore: () => void;
   onApplyCalibration: () => void;
+  onSaveAndSuggest?: () => void;
   onFixRegression?: () => void;
   onSeeAnalysis?: () => void;
   onChooseSqlCuration: () => void;
-  sqlCurationValue: string;
-  onSqlCurationChange: (v: string) => void;
-  onSqlCurationSave: () => void;
-  sqlEditActive?: boolean;
-  sqlQueryTested?: boolean;
 }
 
 export function ClassificationPanel({
   mode,
+  loading,
+  onSkipLoading,
+  onNextQuestion,
+  hasNextQuestion,
   questionClassification,
   selected,
   saving,
   remainingCount,
   totalCount,
-  verified,
-  onVerifiedChange,
   fromTest: _fromTest,
   correction,
   onCorrectionChange,
@@ -60,22 +59,16 @@ export function ClassificationPanel({
   onAccurateClick,
   onConfirmAccurate,
   onChangeClassification,
-  onChooseCalibration,
   onSuggestCalibration,
   onBackToNlInput,
-  onBackToFork,
+  onSuggestMore,
   onApplyCalibration,
+  onSaveAndSuggest,
   onFixRegression,
   onSeeAnalysis,
   onChooseSqlCuration,
-  sqlCurationValue,
-  onSqlCurationChange,
-  onSqlCurationSave,
-  sqlEditActive = false,
-  sqlQueryTested = false,
 }: ClassificationPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [showAccurateConfirm, setShowAccurateConfirm] = useState(false);
 
   useEffect(() => {
     if (mode === 'nl-input' && textareaRef.current) {
@@ -108,35 +101,36 @@ export function ClassificationPanel({
         </div>
       )}
 
+      {loading ? (
+        <>
+          <div className="classification-body">
+            <div className="calibration-analyzing">
+              <DotSpinner />
+              <p className="calibration-analyzing-text">
+                Checking response against expected answer...
+              </p>
+            </div>
+          </div>
+          <div className="classification-actions">
+            <button className="btn-pill-outline" onClick={onSkipLoading}>
+              Skip
+            </button>
+            {hasNextQuestion && (
+              <button className="btn-pill-brand" onClick={onNextQuestion}>
+                Next Question
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
       {mode === 'classify' && (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <div className="classification-body">
-          {!sqlEditActive && (
-            <p className="classification-prompt">
-              How would you classify the agent's response?
-            </p>
-          )}
+          <p className="classification-prompt">
+            How would you classify the agent's response?
+          </p>
           <div className="classification-cards equal-height">
-            {sqlEditActive && (
-              <div style={{ display: 'contents' }}><div style={{ position: 'relative' }}>
-                {selected !== 'accurate' && (
-                  <button className="change-status-link" onClick={() => setShowAccurateConfirm(true)}>
-                    Switch to accurate
-                  </button>
-                )}
-              <div className={`classification-option inaccurate ${selected === 'accurate' ? 'deselected-outline' : 'selected disabled-selected'}`}>
-                <div className="option-icon">
-                  <Warning size={16} />
-                </div>
-                <div className="option-content">
-                  <div className="option-title">Inaccurate</div>
-                  <div className="option-desc">Use this example to diagnose the issue and test semantic model calibrations.</div>
-                </div>
-                {selected !== 'accurate' && <div className="option-check"><Check size={14} /></div>}
-              </div>
-              </div></div>
-            )}
-            {!sqlEditActive && (
             <button
               className={`classification-option inaccurate ${
                 selected === 'inaccurate' ? 'selected' : ''
@@ -160,22 +154,21 @@ export function ClassificationPanel({
                 </div>
               )}
             </button>
-            )}
 
             <button
-              className={`classification-option accurate ${
+              className={`classification-option verified ${
                 selected === 'accurate' || isGolden ? 'selected' : ''
-              } ${isGolden ? 'disabled-selected' : ''} ${sqlEditActive && !sqlQueryTested && selected !== 'accurate' ? 'accurate-pending' : ''}`}
-              onClick={isGolden || (sqlEditActive && !sqlQueryTested && selected !== 'accurate') ? undefined : onAccurateClick}
-              disabled={Boolean(saving) || isGolden || (sqlEditActive && !sqlQueryTested && selected !== 'accurate')}
+              } ${isGolden ? 'disabled-selected' : ''}`}
+              onClick={isGolden ? undefined : onAccurateClick}
+              disabled={Boolean(saving) || isGolden}
             >
               <div className="option-icon">
-                <Check size={16} />
+                <Shield size={16} />
               </div>
               <div className="option-content">
-                <div className="option-title">Accurate</div>
+                <div className="option-title">Verified</div>
                 <div className="option-desc">
-                  This response is correct and will be saved as expected query for future agent responses.
+                  This example will be saved as a verified reference to guide future agent responses.
                 </div>
               </div>
               {(selected === 'accurate' || isGolden) && (
@@ -188,32 +181,12 @@ export function ClassificationPanel({
 
         </div>
 
-          {(selected === 'accurate' || isGolden || (sqlEditActive && sqlQueryTested)) && (
+          {(selected === 'accurate' || isGolden) && (
             <div className="accurate-bottom-section">
-              <div className="verification-toggle-row">
-                <div className="verification-toggle-left">
-                  <div className="verification-toggle-icon">
-                    <Shield size={16} />
-                  </div>
-                  <div className="verification-toggle-content">
-                    <div className="verification-toggle-title">Mark as Verified</div>
-                    <div className="verification-toggle-desc">This example will be saved as a verified reference to guide future agent responses.</div>
-                  </div>
-                </div>
-                <label className="toggle">
-                  <input type="checkbox" checked={verified} onChange={(e) => onVerifiedChange(e.target.checked)} />
-                  <span className="toggle-slider" />
-                </label>
-              </div>
               <div className="classification-actions">
-                <button className="btn-pill-outline" onClick={sqlEditActive ? onBackToFork : onChangeClassification}>Back</button>
+                <button className="btn-pill-outline" onClick={onChangeClassification}>Back</button>
                 <button className="btn-pill-brand" onClick={onConfirmAccurate}>Next Question</button>
               </div>
-            </div>
-          )}
-          {sqlEditActive && !selected && !sqlQueryTested && (
-            <div className="classification-actions" style={{ padding: '16px 20px' }}>
-              <button className="btn-pill-outline" onClick={onBackToFork}>Back</button>
             </div>
           )}
         </div>
@@ -244,7 +217,7 @@ export function ClassificationPanel({
         </>
       )}
 
-      {mode === 'fork-decision' && (
+      {mode === 'nl-input' && (
         <>
           {questionClassification === 'regression' && (
             <div className="inaccurate-status">
@@ -252,56 +225,6 @@ export function ClassificationPanel({
               <button className="link-button" onClick={onChangeClassification}>Change</button>
             </div>
           )}
-          <div className="classification-body">
-            <p className="classification-prompt">
-              How would you like to resolve this inaccuracy?
-            </p>
-            <div className="classification-cards equal-height">
-              <button
-                className="classification-option fork-option"
-                onClick={onChooseSqlCuration}
-              >
-                <div className="option-icon" style={{ background: 'var(--color-surface-3)', color: 'var(--color-on-surface-1)' }}>
-                  <Code size={16} />
-                </div>
-                <div className="option-content">
-                  <div className="option-title">SQL Curation</div>
-                  <div className="option-desc">
-                    Manually write or edit the expected SQL query.
-                  </div>
-                </div>
-              </button>
-
-              <button
-                className="classification-option fork-option"
-                onClick={onChooseCalibration}
-              >
-                <div className="option-icon" style={{ background: 'var(--color-brand-95)', color: 'var(--color-brand)' }}>
-                  <Sparkles size={16} />
-                </div>
-                <div className="option-content">
-                  <div className="option-title">Calibration</div>
-                  <div className="option-desc">
-                    Describe the issue in natural language and let AI suggest a
-                    calibration to fix it.
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-          <div className="classification-actions">
-            <button
-              className="btn-pill-outline"
-              onClick={onChangeClassification}
-            >
-              Back
-            </button>
-          </div>
-        </>
-      )}
-
-      {mode === 'nl-input' && (
-        <>
           <div className="inaccurate-body">
             <p className="inaccurate-prompt">
               Describe the issue and the desired correct behavior
@@ -340,7 +263,7 @@ export function ClassificationPanel({
           <div className="classification-actions">
             <button
               className="btn-pill-outline"
-              onClick={onBackToFork}
+              onClick={onChangeClassification}
             >
               Back
             </button>
@@ -411,6 +334,29 @@ export function ClassificationPanel({
                 </div>
               </div>
             </div>
+
+            <button type="button" className="link-button suggest-more-link" onClick={onSuggestMore}>
+              Suggest more
+            </button>
+
+            <hr className="classification-divider" />
+
+            <button
+              type="button"
+              className="curate-query-card"
+              onClick={onChooseSqlCuration}
+            >
+              <span className="curate-query-icon">
+                <Code size={14} />
+              </span>
+              <div className="curate-query-content">
+                <span className="curate-query-title">Curate Verified Query</span>
+                <p className="curate-query-desc">
+                  Enables direct modification of the SQL syntax to establish an expected
+                  query for regression testing and to guide the agent as a verified example.
+                </p>
+              </div>
+            </button>
           </div>
           <div className="classification-actions">
             <button
@@ -418,6 +364,12 @@ export function ClassificationPanel({
               onClick={onBackToNlInput}
             >
               Back
+            </button>
+            <button
+              className="btn-pill-muted btn-with-icon-muted"
+              onClick={onSaveAndSuggest ?? onApplyCalibration}
+            >
+              <SparkleSingle size={14} /> Save &amp; Suggest
             </button>
           </div>
         </>
@@ -444,7 +396,7 @@ export function ClassificationPanel({
         <>
           <div className="classification-body">
             <div className="calibration-analyzing">
-              <div className="spinner" />
+              <DotSpinner />
               <p className="calibration-analyzing-text">
                 Re-evaluating question...
               </p>
@@ -453,367 +405,20 @@ export function ClassificationPanel({
         </>
       )}
 
-      {mode === 'sql-curation' && (
-        <SqlCurationPanel
-          questionClassification={questionClassification}
-          sqlCurationValue={sqlCurationValue}
-          onSqlCurationChange={onSqlCurationChange}
-          onSqlCurationSave={onSqlCurationSave}
-          onBackToFork={onBackToFork}
-        />
-      )}
-
-      {showAccurateConfirm && (
-        <div className="modal-backdrop" onClick={() => setShowAccurateConfirm(false)}>
-          <div className="mark-accurate-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="mark-accurate-modal-title">Mark As Accurate</div>
-            <p className="mark-accurate-modal-body">
-              You're about to change the question to accurate.<br />
-              Ensure the answer is correct before accepting
-            </p>
-            <div className="mark-accurate-modal-actions">
-              <button className="btn-pill-outline" onClick={() => setShowAccurateConfirm(false)}>Cancel</button>
-              <button className="btn-pill-brand" onClick={() => { setShowAccurateConfirm(false); onAccurateClick(); }}>Approve</button>
+      {mode === 'verifying' && (
+        <>
+          <div className="classification-body">
+            <div className="calibration-analyzing">
+              <DotSpinner />
+              <p className="calibration-analyzing-text">
+                Verifying question...
+              </p>
             </div>
           </div>
-        </div>
+        </>
+      )}
+        </>
       )}
     </div>
-  );
-}
-
-type ValidateState = 'idle' | 'validating' | 'success' | 'error';
-
-function getErrorExample(sql: string): { bad: string; good: string } {
-  const s = sql.trim();
-  const up = s.toUpperCase();
-  if (!s) return {
-    bad: '(empty)',
-    good: "SELECT col FROM SEMANTIC_VIEW('model', ...)",
-  };
-  if (!up.includes('SELECT')) return {
-    bad: s.split('\n')[0].slice(0, 60) || s.slice(0, 60),
-    good: "SELECT product_name, total_sales FROM SEMANTIC_VIEW('sales_extended', ...)",
-  };
-  if (!up.includes('FROM') && !up.includes('SEMANTIC_VIEW')) return {
-    bad: 'SELECT product_name, total_sales',
-    good: "SELECT product_name, total_sales FROM SEMANTIC_VIEW('sales_extended', ...)",
-  };
-  if (up.includes('SEMANTIC_VIEW') && !up.includes("'")) return {
-    bad: 'SEMANTIC_VIEW(sales_extended, ...)',
-    good: "SEMANTIC_VIEW('sales_extended', ...)",
-  };
-  if ((s.match(/\(/g) ?? []).length !== (s.match(/\)/g) ?? []).length) return {
-    bad: 'ROW_NUMBER() OVER (ORDER BY total DESC',
-    good: 'ROW_NUMBER() OVER (ORDER BY total DESC)',
-  };
-  return {
-    bad: s.split('\n')[0].slice(0, 60),
-    good: "SELECT col FROM SEMANTIC_VIEW('model', DIMENSIONS ..., MEASURES ...)",
-  };
-}
-
-function diagnoseSQL(sql: string): string {
-  const s = sql.trim();
-  const up = s.toUpperCase();
-  if (!s) return 'Query is empty.';
-  if (!up.includes('SELECT')) return 'Missing SELECT statement — query must start with SELECT.';
-  if (!up.includes('FROM') && !up.includes('SEMANTIC_VIEW')) return 'Missing FROM clause or SEMANTIC_VIEW() source.';
-  if (up.includes('SEMANTIC_VIEW') && !up.includes("'")) return "SEMANTIC_VIEW requires a quoted model name, e.g. SEMANTIC_VIEW('sales_extended', ...).";
-  if ((s.match(/\(/g) ?? []).length !== (s.match(/\)/g) ?? []).length) return 'Unmatched parentheses — check opening and closing brackets.';
-  if (up.includes('WHERE') && !up.includes('AND') && !up.includes('=') && !up.includes('>') && !up.includes('<')) return 'WHERE clause appears incomplete — no condition found.';
-  if (up.includes('GROUP BY') && !up.includes('SELECT')) return 'GROUP BY requires a SELECT with matching columns.';
-  return 'Query could not be validated — check syntax and try again.';
-}
-function transformSQL(sql: string, instruction: string): { sql: string; explanation: string } {
-  const ins = instruction.toLowerCase().trim();
-  let out = sql;
-  let explanation = '';
-
-  // ── LIMIT ──────────────────────────────────────────────────────────────
-  const limitMatch = ins.match(/(?:limit|show|top|only|first)\s+(\d+)/);
-  if (limitMatch) {
-    const n = limitMatch[1];
-    if (/^LIMIT\s+\d+/m.test(out)) {
-      out = out.replace(/^(LIMIT\s+)\d+/m, `$1${n}`);
-    } else {
-      out = out.trimEnd() + `\nLIMIT ${n}`;
-    }
-    explanation = `Changed result limit to ${n} rows.`;
-  }
-
-  // ── FILTER by region ───────────────────────────────────────────────────
-  const regionMatch = ins.match(/(?:filter|only|where|for)\s+(?:the\s+)?(\w+)\s+region/);
-  if (regionMatch) {
-    const region = regionMatch[1].charAt(0).toUpperCase() + regionMatch[1].slice(1);
-    const condition = `Region.Name = '${region}'`;
-    if (/WHERE/i.test(out)) {
-      out = out.replace(/WHERE/i, `WHERE ${condition}\n  AND`);
-    } else {
-      out = out.replace(/ORDER BY/i, `WHERE ${condition}\nORDER BY`);
-    }
-    explanation = `Added filter for ${region} region.`;
-  }
-
-  // ── GROUP BY ───────────────────────────────────────────────────────────
-  const groupMatch = ins.match(/group\s+by\s+([\w_]+(?:\s*,\s*[\w_]+)*)/);
-  if (groupMatch) {
-    const col = groupMatch[1].trim();
-    if (/GROUP BY/i.test(out)) {
-      out = out.replace(/GROUP BY\s+[\w_.]+/i, `GROUP BY ${col}`);
-    } else {
-      out = out.replace(/ORDER BY/i, `GROUP BY ${col}\nORDER BY`);
-    }
-    explanation = `Added GROUP BY ${col}.`;
-  }
-
-  // ── ORDER / SORT ───────────────────────────────────────────────────────
-  const orderAscMatch = ins.match(/sort|order\s+by\s+([\w_]+)\s*(ascending|asc)?/);
-  const orderDescMatch = ins.match(/sort|order\s+by\s+([\w_]+)\s*(descending|desc)/);
-  if (orderDescMatch) {
-    const col = orderDescMatch[1];
-    out = out.replace(/ORDER BY[\s\S]*?((?:\n[A-Z]|\n\n|$))/, `ORDER BY ${col} DESC$1`);
-    explanation = `Changed sort to ${col} descending.`;
-  } else if (orderAscMatch && orderAscMatch[1]) {
-    const col = orderAscMatch[1];
-    out = out.replace(/ORDER BY[\s\S]*?((?:\n[A-Z]|\n\n|$))/, `ORDER BY ${col} ASC$1`);
-    explanation = `Changed sort to ${col} ascending.`;
-  }
-
-  // ── REMOVE a column ────────────────────────────────────────────────────
-  const removeColMatch = ins.match(/remove\s+(?:the\s+)?(\w+)\s+(?:column|field)?/);
-  if (removeColMatch) {
-    const col = removeColMatch[1];
-    const re = new RegExp(`[,\\s]*\\b${col}\\b[^,\\n]*(?:,|(?=\\n))`, 'i');
-    out = out.replace(re, '');
-    explanation = `Removed ${col} from the query.`;
-  }
-
-  // ── ADD column ─────────────────────────────────────────────────────────
-  const addColMatch = ins.match(/add\s+(?:the\s+)?(\w+(?:\.\w+)?)\s+(?:column|field)?/);
-  if (addColMatch) {
-    const col = addColMatch[1];
-    out = out.replace(/^(SELECT\s+)/im, `$1${col},\n  `);
-    explanation = `Added ${col} to SELECT.`;
-  }
-
-  // ── DATE RANGE ─────────────────────────────────────────────────────────
-  if (/last\s+(month|quarter|year|week)/i.test(ins)) {
-    const period = ins.match(/last\s+(month|quarter|year|week)/i)![1].toUpperCase();
-    const trunc = period === 'WEEK' ? 'week' : period === 'MONTH' ? 'month' : period === 'YEAR' ? 'year' : 'quarter';
-    const dateFilter = `close_date >= DATE_TRUNC('${trunc}', CURRENT_DATE) - INTERVAL '1 ${trunc}'`;
-    if (/WHERE/i.test(out)) {
-      out = out.replace(/WHERE/i, `WHERE ${dateFilter}\n  AND`);
-    } else {
-      out = out.replace(/ORDER BY/i, `WHERE ${dateFilter}\nORDER BY`);
-    }
-    explanation = `Added date filter for last ${trunc}.`;
-  }
-
-  // ── fallback: no rule matched ──────────────────────────────────────────
-  if (!explanation) {
-    explanation = `No matching transformation found for: "${instruction}". Try phrases like "limit 10", "filter by West region", "group by product_name", "sort by amount descending".`;
-  }
-
-  return { sql: out, explanation };
-}
-
-type AiDraftState = 'idle' | 'drafting' | 'done';
-
-function SqlCurationPanel({
-  questionClassification,
-  sqlCurationValue,
-  onSqlCurationChange,
-  onSqlCurationSave,
-  onBackToFork,
-}: {
-  questionClassification?: Classification;
-  sqlCurationValue: string;
-  onSqlCurationChange: (v: string) => void;
-  onSqlCurationSave: () => void;
-  onBackToFork: () => void;
-}) {
-  const [validateState, setValidateState] = useState<ValidateState>('idle');
-  const [validateError, setValidateError] = useState('');
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiDraftState, setAiDraftState] = useState<AiDraftState>('idle');
-  const [aiExplanation, setAiExplanation] = useState('');
-  const [highlightRange, setHighlightRange] = useState<{ start: number; end: number } | null>(null);
-  const [sqlBeforeAi, setSqlBeforeAi] = useState<string | null>(null);
-
-  const handleValidate = () => {
-    setValidateState('validating');
-    setValidateError('');
-    setTimeout(() => {
-      const up = sqlCurationValue.toUpperCase();
-      const passes = up.includes('SELECT') && (up.includes('FROM') || up.includes('SEMANTIC_VIEW'));
-      if (passes) {
-        setValidateState('success');
-      } else {
-        setValidateError(diagnoseSQL(sqlCurationValue));
-        setValidateState('error');
-      }
-    }, 1400);
-  };
-
-  const handleChange = (v: string) => {
-    if (validateState !== 'idle') setValidateState('idle');
-    if (highlightRange) setHighlightRange(null);
-    if (sqlBeforeAi) setSqlBeforeAi(null);
-    onSqlCurationChange(v);
-  };
-
-  const handleAiRevert = () => {
-    if (!sqlBeforeAi) return;
-    onSqlCurationChange(sqlBeforeAi);
-    setSqlBeforeAi(null);
-    setAiDraftState('idle');
-    setAiExplanation('');
-    setHighlightRange(null);
-    if (validateState !== 'idle') setValidateState('idle');
-  };
-
-  const handleAiApply = () => {
-    if (!aiPrompt.trim()) return;
-    setSqlBeforeAi(sqlCurationValue);
-    setAiDraftState('drafting');
-    setAiExplanation('');
-    setTimeout(() => {
-      const { sql: updated, explanation } = transformSQL(sqlCurationValue, aiPrompt.trim());
-      const addedChars = updated.length - sqlCurationValue.length;
-      onSqlCurationChange(updated);
-      if (addedChars > 0) setHighlightRange({ start: 0, end: addedChars });
-      else setHighlightRange(null);
-      setAiExplanation(explanation);
-      if (validateState !== 'idle') setValidateState('idle');
-      setAiDraftState('done');
-    }, 1200);
-  };
-
-  return (
-    <>
-      {/* AI prompt section */}
-      <div className="ai-sql-prompt-section">
-        <div className="ai-sql-prompt-header">
-          <SparkleSingle size={13} />
-          <span>Ask AI to edit the query</span>
-        </div>
-        <div className="ai-sql-prompt-input-row">
-          <textarea
-            className="ai-sql-prompt-textarea"
-            placeholder="e.g. Show only West region, limit to 10 rows, sort by amount descending, add product_name column..."
-            value={aiPrompt}
-            rows={2}
-            disabled={aiDraftState === 'drafting'}
-            onChange={(e) => {
-              setAiPrompt(e.target.value);
-              if (aiDraftState === 'done') { setAiDraftState('idle'); setAiExplanation(''); }
-            }}
-          />
-        </div>
-        <div className="ai-sql-prompt-footer">
-          {aiDraftState === 'done' && aiExplanation && (
-            <span className={`ai-sql-prompt-done ${aiExplanation.startsWith('No matching') ? 'warn' : ''}`}>
-              {aiExplanation.startsWith('No matching')
-                ? <><Warning size={12} /> {aiExplanation}</>
-                : <><Check size={12} /> {aiExplanation}</>}
-            </span>
-          )}
-          <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-            {sqlBeforeAi && (
-              <button
-                className="btn-pill-outline ai-sql-apply-btn"
-                onClick={handleAiRevert}
-              >
-                Revert
-              </button>
-            )}
-            <button
-              className="btn-pill-outline btn-with-icon ai-sql-apply-btn"
-              disabled={!aiPrompt.trim() || aiDraftState === 'drafting'}
-              onClick={handleAiApply}
-            >
-              {aiDraftState === 'drafting'
-                ? <><div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Applying…</>
-                : <><SparkleSingle size={13} /> Apply</>}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="inaccurate-body">
-        <p className="inaccurate-prompt">Edit the expected SQL query</p>
-
-        <div className="sql-editor-wrap">
-          {highlightRange && (
-            <pre className="sql-editor-highlight-overlay" aria-hidden>
-              <mark className="sql-highlight-mark">
-                {sqlCurationValue.slice(highlightRange.start, highlightRange.end)}
-              </mark>
-              {sqlCurationValue.slice(highlightRange.end)}
-            </pre>
-          )}
-          <textarea
-            className={`sql-curation-editor${highlightRange ? ' has-highlight' : ''}`}
-            value={sqlCurationValue}
-            onChange={(e) => handleChange(e.target.value)}
-            spellCheck={false}
-          />
-        </div>
-
-
-        {validateState === 'validating' && (
-          <div className="sql-validate-status sql-validate-validating">
-            <div className="spinner sql-validate-spinner" />
-            <span>Validating query...</span>
-          </div>
-        )}
-        {validateState === 'success' && (
-          <div className="sql-validate-status sql-validate-success">
-            <Check size={14} />
-            <span>Query is valid and returned results</span>
-          </div>
-        )}
-        {validateState === 'error' && (
-          <div className="sql-validate-error-block">
-            <div className="sql-validate-error-title">
-              <Warning size={13} />
-              <span>Validation failed</span>
-            </div>
-            <p className="sql-validate-error-msg">{validateError}</p>
-            <div className="sql-validate-error-example">
-              <div className="sql-validate-error-example-row bad">
-                <span className="sql-validate-example-badge bad">✕ Invalid</span>
-                <code>{getErrorExample(sqlCurationValue).bad}</code>
-              </div>
-              <div className="sql-validate-error-example-row good">
-                <span className="sql-validate-example-badge good">✓ Expected</span>
-                <code>{getErrorExample(sqlCurationValue).good}</code>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="classification-actions">
-        <button className="btn-pill-outline" onClick={onBackToFork}>Back</button>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            className="btn-pill-outline"
-            disabled={sqlCurationValue.trim().length === 0 || validateState === 'validating'}
-            onClick={handleValidate}
-          >
-            Validate
-          </button>
-          <button
-            className="btn-pill-brand"
-            disabled={sqlCurationValue.trim().length === 0 || validateState === 'validating'}
-            onClick={onSqlCurationSave}
-          >
-            Save Query
-          </button>
-        </div>
-      </div>
-    </>
   );
 }

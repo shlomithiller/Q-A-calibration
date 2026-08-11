@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { Workbench } from './components/Workbench';
-import type { TabKey } from './components/Workbench';
 import { QuestionDetail } from './components/QuestionDetail';
 import { ClassificationPanel } from './components/ClassificationPanel';
 import type { PanelMode } from './components/ClassificationPanel';
@@ -12,10 +11,10 @@ import type { Classification, Question } from './data/questions';
 import { CreateTestModal } from './components/CreateTestModal';
 import { DiffModal } from './components/DiffModal';
 import { Close, Check, SparkleSingle } from './components/Icons';
-import { SqlCurationView } from './components/SqlCurationView';
+import { SqlCurationModal } from './components/SqlCurationModal';
 
 type View =
-  | { kind: 'list'; tab?: TabKey }
+  | { kind: 'list' }
   | { kind: 'detail'; questionId: string }
   | { kind: 'test-suites' }
   | { kind: 'regression-test'; testName: string; questionIds: string[] };
@@ -52,8 +51,9 @@ export default function App() {
   const [testCompleted, setTestCompleted] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
   const [sqlCurationValue, setSqlCurationValue] = useState('');
-  const [sqlEditActive, setSqlEditActive] = useState(false);
-  const [sqlQueryTested, setSqlQueryTested] = useState(false);
+  const [showSqlModal, setShowSqlModal] = useState(false);
+  const verifyTimeoutRef = useRef<number | null>(null);
+  const pendingVerifySqlRef = useRef('');
 
   const currentQuestion =
     view.kind === 'detail'
@@ -82,8 +82,8 @@ export default function App() {
     setMode(q?.classification === 'regression' ? 'regression-analysis' : 'classify');
     setCorrection('');
     setVerified(q?.classification === 'accurate');
-    setSqlEditActive(false);
-    const t = setTimeout(() => setLoading(false), 700);
+    setShowSqlModal(false);
+    const t = setTimeout(() => setLoading(false), 1600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.kind === 'detail' ? view.questionId : null]);
@@ -163,7 +163,8 @@ export default function App() {
   const handleInaccurateClick = () => {
     if (saving || !currentQuestion) return;
     setSelected('inaccurate');
-    setMode('fork-decision');
+    setMode('nl-input');
+    setCorrection('');
   };
 
   const handleBackToClassify = () => {
@@ -171,37 +172,48 @@ export default function App() {
     setSelected(null);
   };
 
-  const handleChooseCalibration = () => {
+  const handleBackToNlInput = () => {
     setMode('nl-input');
-    setCorrection('');
   };
 
   const handleChooseSqlCuration = () => {
     setSqlCurationValue(currentQuestion?.response.sql ?? '');
-    setSqlEditActive(true);
-    setSqlQueryTested(false);
-    setSelected(null);
-    setMode('classify');
+    setShowSqlModal(true);
   };
 
-  const handleSqlCurationSave = () => {
-    if (view.kind !== 'detail' || !currentQuestion) return;
-    setQuestions((prev) =>
-      prev.map((q) =>
-        q.id === currentQuestion.id
-          ? { ...q, response: { ...q.response, sql: sqlCurationValue }, classification: 'accurate' as Classification }
-          : q,
-      ),
-    );
-    showToast({ variant: 'accurate', text: 'SQL query saved' });
-    setSqlEditActive(false);
+  const finishVerifying = (sql: string) => {
+    if (view.kind === 'detail' && currentQuestion) {
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.id === currentQuestion.id
+            ? { ...q, response: { ...q.response, sql }, classification: 'accurate' as Classification }
+            : q,
+        ),
+      );
+    }
+    setVerified(true);
+    setSelected('accurate');
     setMode('classify');
-    setSelected(null);
+    showToast({ variant: 'accurate', text: 'Question verified and saved to Golden Dataset' });
   };
 
-  const handleBackToFork = () => {
-    setSqlEditActive(false);
-    setMode('fork-decision');
+  const handleSqlCurationSave = (sql: string) => {
+    setSqlCurationValue(sql);
+    setShowSqlModal(false);
+    setMode('verifying');
+    pendingVerifySqlRef.current = sql;
+    verifyTimeoutRef.current = window.setTimeout(() => {
+      verifyTimeoutRef.current = null;
+      finishVerifying(sql);
+    }, 1800);
+  };
+
+  const handleSkipVerifying = () => {
+    if (verifyTimeoutRef.current) {
+      window.clearTimeout(verifyTimeoutRef.current);
+      verifyTimeoutRef.current = null;
+    }
+    finishVerifying(pendingVerifySqlRef.current);
   };
 
   const handleSuggestCalibration = () => {
@@ -209,8 +221,9 @@ export default function App() {
     setTimeout(() => setMode('suggestion-preview'), 2200);
   };
 
-  const handleBackToNlInput = () => {
-    setMode('nl-input');
+  const handleSuggestMore = () => {
+    setMode('suggesting');
+    setTimeout(() => setMode('suggestion-preview'), 1800);
   };
 
   const handleApplyCalibration = () => {
@@ -227,10 +240,6 @@ export default function App() {
         setSaving(null);
       }, 2000);
     }, 1800);
-  };
-
-  const handleRunTest = () => {
-    setShowTestModal(true);
   };
 
   const handleCreateTest = (name: string, _description: string, questionIds: string[]) => {
@@ -303,6 +312,7 @@ export default function App() {
   );
 
   const isReEvaluating = mode === 're-evaluating';
+  const isVerifying = mode === 'verifying';
 
   const renderBody = () => {
     if (view.kind === 'test-suites') {
@@ -339,8 +349,6 @@ export default function App() {
         <Workbench
           questions={questions}
           onOpenQuestion={openQuestion}
-          initialTab={view.tab}
-          onRunTest={handleRunTest}
         />
       );
     }
@@ -355,15 +363,12 @@ export default function App() {
         saving={saving}
         onBack={handleBackFromDetail}
         reEvaluating={isReEvaluating}
+        verifying={isVerifying}
         verified={verified}
         fromTest={cameFromTest}
-        sqlEditMode={sqlEditActive}
-        sqlEditValue={sqlCurationValue}
-        onSqlEditChange={(v) => { setSqlCurationValue(v); setSqlQueryTested(false); }}
-        onSqlCurationSave={handleSqlCurationSave}
         onNextQuestion={handleNextQuestion}
         hasNextQuestion={!!nextQuestion}
-        onQueryTested={() => setSqlQueryTested(true)}
+        onSkipVerifying={handleSkipVerifying}
       />
     );
   };
@@ -378,28 +383,25 @@ export default function App() {
             <h3 className="done-panel-title">You're all caught up</h3>
             <p className="done-panel-text">
               Every question in this batch has been classified. Review
-              the Golden Dataset or pick up the next batch.
+              the full list or pick up the next batch.
             </p>
-            <button className="btn-pill-brand" onClick={() => setView({ kind: 'list', tab: 'golden' })}>
-              View Golden Dataset
+            <button className="btn-pill-brand" onClick={() => setView({ kind: 'list' })}>
+              View All Questions
             </button>
           </div>
         </div>
       ) : (
         <ClassificationPanel
           mode={mode}
+          loading={loading}
+          onSkipLoading={() => setLoading(false)}
+          onNextQuestion={handleNextQuestion}
+          hasNextQuestion={!!nextQuestion}
           selected={selected}
           saving={saving}
           remainingCount={remainingCount}
           totalCount={initialReviewable.current}
           questionClassification={currentQuestion?.classification}
-          verified={verified}
-          onVerifiedChange={(v) => {
-            setVerified(v);
-            if (v) {
-              showToast({ variant: 'accurate', text: 'Question marked as verified' });
-            }
-          }}
           fromTest={cameFromTest}
           correction={correction}
           onCorrectionChange={setCorrection}
@@ -407,19 +409,17 @@ export default function App() {
           onAccurateClick={handleAccurate}
           onConfirmAccurate={handleConfirmAccurate}
           onChangeClassification={handleBackToClassify}
-          onChooseCalibration={handleChooseCalibration}
           onSuggestCalibration={handleSuggestCalibration}
           onBackToNlInput={handleBackToNlInput}
-          onBackToFork={handleBackToFork}
+          onSuggestMore={handleSuggestMore}
           onApplyCalibration={handleApplyCalibration}
-          onFixRegression={() => setMode('fork-decision')}
+          onSaveAndSuggest={handleApplyCalibration}
+          onFixRegression={() => {
+            setMode('nl-input');
+            setCorrection('');
+          }}
           onSeeAnalysis={() => setShowDiffModal(true)}
           onChooseSqlCuration={handleChooseSqlCuration}
-          sqlCurationValue={sqlCurationValue}
-          onSqlCurationChange={setSqlCurationValue}
-          onSqlCurationSave={handleSqlCurationSave}
-          sqlEditActive={sqlEditActive}
-          sqlQueryTested={sqlQueryTested}
         />
       )
     ) : view.kind === 'regression-test' && showCalibrationPanel ? (
@@ -510,6 +510,14 @@ export default function App() {
       )}
       {showDiffModal && (
         <DiffModal onClose={() => setShowDiffModal(false)} />
+      )}
+      {showSqlModal && currentQuestion && (
+        <SqlCurationModal
+          question={currentQuestion}
+          initialSql={sqlCurationValue}
+          onSave={handleSqlCurationSave}
+          onClose={() => setShowSqlModal(false)}
+        />
       )}
       {showRerunDialog && (
         <div className="modal-backdrop" onClick={handleRerunCancel}>

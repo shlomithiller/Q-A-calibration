@@ -15,28 +15,20 @@ import {
   VerifiedCheck,
 } from './Icons';
 
-export type TabKey = 'triage' | 'golden';
-
 interface WorkbenchProps {
   questions: Question[];
   onOpenQuestion: (id: string) => void;
-  initialTab?: TabKey;
-  onRunTest?: () => void;
 }
 
-export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', onRunTest }: WorkbenchProps) {
-  const [tab, setTab] = useState<TabKey>(initialTab);
+export function Workbench({ questions, onOpenQuestion }: WorkbenchProps) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const filtered = questions.filter((q) => {
-    if (tab === 'triage' && q.classification !== 'new') return false;
-    if (tab === 'golden' && q.classification !== 'accurate' && q.classification !== 'regression') return false;
     if (!search) return true;
     return q.text.toLowerCase().includes(search.toLowerCase());
   });
 
-  const triageCount = questions.filter((q) => q.classification === 'new').length;
   const goldenCount = questions.filter((q) => q.classification === 'accurate' || q.classification === 'regression').length;
   const regressionCount = questions.filter((q) => q.classification === 'regression').length;
 
@@ -79,22 +71,7 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
           </div>
         </div>
       </div>
-      <div className="workbench-tabs-standalone">
-        <button
-          className={`workbench-tab ${tab === 'triage' ? 'active' : ''}`}
-          onClick={() => setTab('triage')}
-        >
-          Triage ({triageCount})
-        </button>
-        <button
-          className={`workbench-tab ${tab === 'golden' ? 'active' : ''}`}
-          onClick={() => setTab('golden')}
-        >
-          Golden Dataset ({goldenCount})
-        </button>
-      </div>
-
-      {tab === 'golden' && regressionCount > 0 && (
+      {regressionCount > 0 && (
         <div className="workbench-regression-alert">
           <Warning size={16} />
           <span>{regressionCount} question{regressionCount > 1 ? 's' : ''} failed regression testing. Calibrate the model to resolve.</span>
@@ -132,52 +109,28 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
           </div>
         </div>
         <div className="toolbar-actions">
-          {tab === 'golden' ? (
-            <button
-              className="btn btn-brand"
-              onClick={onRunTest}
-            >
-              Run Test
+          <div className="btn-group">
+            <button className="btn-group-item">
+              <Sparkles size={14} /> Generate
             </button>
-          ) : (
-            <>
-              <div className="btn-group">
-                <button className="btn-group-item">
-                  <Sparkles size={14} /> Generate
-                </button>
-                <button className="btn-group-item">
-                  <Plus size={14} /> Add
-                </button>
-                <button className="btn-group-item">
-                  <Upload size={14} /> Import
-                </button>
-              </div>
-              <button
-                className="btn btn-brand"
-                disabled={filtered.length === 0}
-                onClick={() => filtered[0] && onOpenQuestion(filtered[0].id)}
-              >
-                Review
-              </button>
-            </>
-          )}
+            <button className="btn-group-item">
+              <Plus size={14} /> Add
+            </button>
+            <button className="btn-group-item">
+              <Upload size={14} /> Import
+            </button>
+          </div>
+          <button
+            className="btn btn-brand"
+            disabled={filtered.length === 0}
+            onClick={() => filtered[0] && onOpenQuestion(filtered[0].id)}
+          >
+            Review
+          </button>
         </div>
       </div>
 
-      {tab === 'triage' && filtered.length === 0 ? (
-        <div className="workbench-empty-state">
-          <img
-            src="/illustrations/all-caught-up.svg"
-            alt=""
-            className="done-panel-illo"
-          />
-          <h3 className="done-panel-title">You're all caught up</h3>
-          <p className="done-panel-text">
-            Every question in this batch has been classified. Check the Golden Dataset or pick up the next batch.
-          </p>
-        </div>
-      ) : (
-        <div className="table-wrap">
+      <div className="table-wrap">
           <table className="questions-table">
             <thead>
               <tr>
@@ -211,7 +164,7 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
                   </td>
                   <td className="col-question">
                     <span className="col-question-content">
-                      {tab === 'golden' && (
+                      {q.classification !== 'new' && (
                         <span className="verified-icon-wrap" data-tooltip={q.classification !== 'regression' && idx % 4 !== 3 ? `Verified by admin · May ${10 + (idx % 18)}, 2026 at 2:${String(10 + idx).padStart(2, '0')} PM` : undefined}>
                           {q.classification !== 'regression' && idx % 4 !== 3 ? (
                             <VerifiedCheck size={14} className="verified-icon" />
@@ -249,7 +202,7 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
                       {q.classification === 'new'
                         ? 'New'
                         : q.classification === 'accurate'
-                          ? 'Accurate'
+                          ? 'Verified'
                           : q.classification === 'regression'
                             ? 'Regression'
                             : 'Inaccurate'}
@@ -276,8 +229,7 @@ export function Workbench({ questions, onOpenQuestion, initialTab = 'triage', on
               )}
             </tbody>
           </table>
-        </div>
-      )}
+      </div>
       </div>
     </div>
   );

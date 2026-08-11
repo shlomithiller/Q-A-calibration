@@ -3,24 +3,18 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronRight,
-  Database,
   Code,
   ThumbsUp,
   ThumbsDown,
   Check,
   Warning,
   VerifiedCheck,
-  CircleCheck,
-  CircleX,
-  Undo,
-  Redo,
-  Play,
   SparkleSingle,
-  Copy,
 } from './Icons';
-import { QueryPanel, highlightLine } from './QueryPanel';
+import { QueryPanel } from './QueryPanel';
 import { ChartPreview } from './ChartPreview';
-import { useState, useRef } from 'react';
+import { DotSpinner } from './DotSpinner';
+import { useState } from 'react';
 
 export interface QuestionDetailProps {
   question: Question;
@@ -28,15 +22,12 @@ export interface QuestionDetailProps {
   saving: Classification | null;
   onBack: () => void;
   reEvaluating?: boolean;
+  verifying?: boolean;
   verified?: boolean;
   fromTest?: boolean;
-  sqlEditMode?: boolean;
-  sqlEditValue?: string;
-  onSqlEditChange?: (v: string) => void;
-  onSqlCurationSave?: () => void;
   onNextQuestion?: () => void;
   hasNextQuestion?: boolean;
-  onQueryTested?: () => void;
+  onSkipVerifying?: () => void;
 }
 
 type RightTab = 'sources' | 'query';
@@ -47,122 +38,15 @@ export function QuestionDetail({
   saving,
   onBack,
   reEvaluating,
+  verifying,
   verified,
   fromTest,
-  sqlEditMode = false,
-  sqlEditValue = '',
-  onSqlEditChange,
-  onSqlCurationSave,
   onNextQuestion,
   hasNextQuestion = false,
-  onQueryTested,
+  onSkipVerifying,
 }: QuestionDetailProps) {
   const [rightTab, setRightTab] = useState<RightTab>('query');
-  const [splitPct, setSplitPct] = useState(50);
-  const evalCardRef = useRef<HTMLDivElement>(null);
-  const dragStartX = useRef(0);
-  const dragStartPct = useRef(50);
-
-  const handlePanelDragStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    dragStartX.current = e.clientX;
-    dragStartPct.current = splitPct;
-    const onMove = (ev: MouseEvent) => {
-      if (!evalCardRef.current) return;
-      const cardW = evalCardRef.current.offsetWidth;
-      const delta = ev.clientX - dragStartX.current;
-      const newPct = Math.min(75, Math.max(25, dragStartPct.current + (delta / cardW) * 100));
-      setSplitPct(newPct);
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  };
-
-  const mirrorRef = useRef<HTMLDivElement>(null);
-  const historyRef = useRef<string[]>([sqlEditValue]);
-  const [histIdx, setHistIdx] = useState(0);
-  const histTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [testQueryState, setTestQueryState] = useState<'idle' | 'running' | 'done'>('idle');
-  const [syntaxOk, setSyntaxOk] = useState(false);
-  const testRunCountRef = useRef(0);
-  const hasEverTestedRef = useRef(false);
-  const [sqlDirty, setSqlDirty] = useState(false);
-  const [draftExpanded, setDraftExpanded] = useState(true);
-  const [draftText, setDraftText] = useState('');
-  const [draftState, setDraftState] = useState<'idle' | 'drafting'>('idle');
-  const [copied, setCopied] = useState(false);
-
-  const handleResetSql = () => {
-    onSqlEditChange?.(question.response.sql);
-    setTestQueryState('idle');
-    setSyntaxOk(false);
-    setSqlDirty(false);
-    historyRef.current = [question.response.sql];
-    setHistIdx(0);
-    testRunCountRef.current = 0;
-  };
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(sqlEditValue).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    });
-  };
-
-  const pushHistory = (val: string) => {
-    const stack = historyRef.current.slice(0, histIdx + 1);
-    stack.push(val);
-    historyRef.current = stack;
-    setHistIdx(stack.length - 1);
-  };
-
-  const handleSqlChange = (val: string) => {
-    onSqlEditChange?.(val);
-    if (testQueryState === 'done') setTestQueryState('idle');
-    setSqlDirty(true);
-    if (histTimerRef.current) clearTimeout(histTimerRef.current);
-    histTimerRef.current = setTimeout(() => pushHistory(val), 500);
-  };
-
-  const handleUndo = () => {
-    if (histIdx <= 0) return;
-    const newIdx = histIdx - 1;
-    setHistIdx(newIdx);
-    onSqlEditChange?.(historyRef.current[newIdx]);
-    setTestQueryState('idle');
-    setSyntaxOk(false);
-    setSqlDirty(true);
-  };
-
-  const handleRedo = () => {
-    if (histIdx >= historyRef.current.length - 1) return;
-    const newIdx = histIdx + 1;
-    setHistIdx(newIdx);
-    onSqlEditChange?.(historyRef.current[newIdx]);
-    setTestQueryState('idle');
-    setSyntaxOk(false);
-    setSqlDirty(true);
-  };
-
-  const handleTestQuery = () => {
-    setTestQueryState('running');
-    setSyntaxOk(false);
-    setSqlDirty(false);
-    hasEverTestedRef.current = true;
-    testRunCountRef.current += 1;
-    const runIndex = testRunCountRef.current;
-    setTimeout(() => {
-      // First run always fails to demonstrate the error state; subsequent runs pass
-      const ok = runIndex > 1;
-      setSyntaxOk(ok);
-      setTestQueryState('done');
-      if (ok) onQueryTested?.();
-    }, 1200);
-  };
+  const isChecking = loading || verifying || reEvaluating;
 
   return (
     <div className="detail-view">
@@ -192,10 +76,10 @@ export function QuestionDetail({
           )}
           <h2 className="question-title">{question.text}</h2>
           {question.classification !== 'new' && (
-            <button className="btn-pill-outline">Test Question</button>
+            <button className="btn-pill-outline" disabled={isChecking}>Test Question</button>
           )}
-          {hasNextQuestion && !sqlEditMode && (
-            <button className="btn-pill-outline" onClick={onNextQuestion}>
+          {hasNextQuestion && (
+            <button className="btn-pill-outline" onClick={onNextQuestion} disabled={isChecking}>
               Re-run
             </button>
           )}
@@ -239,6 +123,39 @@ export function QuestionDetail({
       </div>
 
       <div className={question.classification === 'regression' ? 'regression-card-wrapper' : question.classification === 'accurate' && fromTest ? 'passed-card-wrapper' : question.classification === 'accurate' ? 'snapshot-card-wrapper' : 'evaluation-card-wrapper'}>
+        {verifying && (
+          <div className="comparing-banner">
+            <div className="comparing-banner-main">
+              <div className="comparing-banner-toprow">
+                <span className="comparing-banner-title">
+                  Verifying Curated Query
+                  <span className="comparing-banner-sparkles" aria-hidden>
+                    <SparkleSingle size={9} />
+                    <SparkleSingle size={9} />
+                    <SparkleSingle size={9} />
+                  </span>
+                </span>
+                <span className="comparing-banner-eta">Estimated time: ~2 sec</span>
+              </div>
+              <p className="comparing-banner-text">
+                Comparing agent response to the expected verified query
+              </p>
+              <div className="comparing-banner-row">
+                <div className="comparing-banner-track">
+                  <div className="comparing-banner-fill" />
+                </div>
+                <button
+                  type="button"
+                  className="comparing-banner-stop"
+                  onClick={onSkipVerifying}
+                  aria-label="Skip verification"
+                >
+                  <span className="comparing-banner-stop-icon" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {question.classification === 'regression' && (
           <div className="regression-scoped-notification">
             <Warning size={16} />
@@ -262,12 +179,12 @@ export function QuestionDetail({
             <button className="snapshot-notification-link">Test Question</button>
           </div>
         )}
-      <div className="evaluation-card" ref={evalCardRef} style={sqlEditMode ? { gridTemplateColumns: `${splitPct}fr 6px ${100 - splitPct}fr` } : undefined}>
+      <div className="evaluation-card">
         <section className="eval-panel">
           <div className="eval-panel-header">
             <span className="eval-panel-title">Q&amp;A Preview</span>
           </div>
-          <div className={`eval-panel-body${sqlEditMode ? ' eval-panel-body-flex' : ''}`}>
+          <div className="eval-panel-body">
             {loading ? (
               <div className="message">
                 <div className="avatar-sm agent">
@@ -279,33 +196,6 @@ export function QuestionDetail({
                     <div className="done"><Check size={12} /> Understanding your request</div>
                     <div className="done"><Check size={12} /> Identifying next steps</div>
                     <div className="working"><DotsLoader /> Working</div>
-                  </div>
-                </div>
-              </div>
-            ) : sqlEditMode && hasEverTestedRef.current ? (
-              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 0, position: 'relative' }}>
-                <div className="qa-preview-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                  <div className="qa-preview-table-header">
-                    <span className="qa-preview-table-title">Sample data</span>
-                  </div>
-                  <div className="qa-preview-table-divider" />
-                  <div className="scv-preview-table-wrap" style={{ flex: 1, minHeight: 0 }}>
-                    <table className="scv-preview-table">
-                      <thead>
-                        <tr>
-                          <th><div className="scv-preview-th-inner"><span className="scv-preview-th-group">Date</span><span className="scv-preview-th-name">Month</span></div></th>
-                          <th><div className="scv-preview-th-inner"><span className="scv-preview-th-group">Orders</span><span className="scv-preview-th-name">Total Orders</span></div></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {question.response.chartData.map((row, i) => (
-                          <tr key={i}>
-                            <td>{row.label}</td>
-                            <td>{row.value.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
                 </div>
               </div>
@@ -332,163 +222,27 @@ export function QuestionDetail({
           </div>
         </section>
 
-        {sqlEditMode && (
-          <div className="eval-panel-drag-handle" onMouseDown={handlePanelDragStart} />
-        )}
-
         <section className="eval-panel relative">
           <div className="eval-panel-header">
-            {sqlEditMode ? (
-              <div className="sql-combined-bar">
-                <div className="sql-combined-bar-left">
-                  <span className="sql-query-badge">
-                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M9.5 1.5L12.5 4.5L4.5 12.5H1.5V9.5L9.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M7.5 3.5L10.5 6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                    </svg>
-                    Editing Query
-                  </span>
-                </div>
-                <div className="sql-edit-toolbar-actions">
-                  <button
-                    className="sql-edit-reset-btn"
-                    disabled={!sqlDirty}
-                    onClick={handleResetSql}
-                    title="Reset to original"
-                  >
-                    <Undo size={12} /> Reset
-                  </button>
-                  <button
-                    className={`sql-edit-test-btn${testQueryState === 'running' ? ' running' : ''}`}
-                    disabled={!sqlEditValue.trim() || testQueryState === 'running' || !sqlDirty}
-                    onClick={handleTestQuery}
-                  >
-                    {testQueryState === 'running'
-                      ? <><div className="spinner" style={{ width: 10, height: 10, borderWidth: 2, borderTopColor: '#fff' }} /> Running…</>
-                      : <><Play size={11} /> Test Query</>}
-                  </button>
-                  {testQueryState === 'done' && syntaxOk && (
-                    <span className="sql-syntax-ok-icon" title="Syntax valid">
-                      <CircleCheck size={22} />
-                    </span>
-                  )}
-                  {testQueryState === 'done' && !syntaxOk && (
-                    <span className="sql-syntax-err-icon" title="Query invalid">
-                      <CircleX size={22} />
-                    </span>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="panel-tabs">
-                <button
-                  className={`panel-tab ${rightTab === 'query' ? 'active' : ''}`}
-                  onClick={() => setRightTab('query')}
-                >
-                  <Code size={14} />
-                  Query
-                </button>
-              </div>
-            )}
+            <div className="panel-tabs">
+              <button
+                className={`panel-tab ${rightTab === 'query' ? 'active' : ''}`}
+                onClick={() => setRightTab('query')}
+                disabled={isChecking}
+              >
+                <Code size={14} />
+                Query
+              </button>
+            </div>
           </div>
           <div className="eval-panel-body no-pad">
             {loading ? (
               <div className="spinner-overlay" style={{ padding: 24 }}>
                 <div className="spinner" />
               </div>
-            ) : sqlEditMode ? (
-                <div className="sql-edit-wrap">
-                  <div className="scv-draft-card" style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', flexShrink: 0 }}>
-                    <button
-                      className="scv-draft-toggle"
-                      onClick={() => setDraftExpanded(v => !v)}
-                      aria-expanded={draftExpanded}
-                    >
-                      <span className="scv-draft-toggle-icon">{draftExpanded ? '▾' : '▸'}</span>
-                      <span className="scv-draft-toggle-label">Describe query requirements</span>
-                    </button>
-                    {draftExpanded && (
-                      <div className="scv-draft-body">
-                        <textarea
-                          className="scv-draft-textarea"
-                          placeholder="Example: Replace filter x with filter y"
-                          value={draftText}
-                          onChange={e => setDraftText(e.target.value)}
-                          rows={3}
-                        />
-                        <div className="scv-draft-actions">
-                          <button
-                            className="scv-draft-clear"
-                            onClick={() => setDraftText('')}
-                            disabled={!draftText || draftState === 'drafting'}
-                          >
-                            Clear
-                          </button>
-                          <button
-                            className={`scv-draft-submit${draftState === 'drafting' ? ' scv-draft-submit-loading' : ''}`}
-                            disabled={!draftText.trim() || draftState === 'drafting'}
-                            onClick={() => {
-                              setDraftState('drafting');
-                              setTimeout(() => {
-                                const aiSql = `-- AI-drafted based on: "${draftText}"\nSELECT\n  order_month,\n  COUNT(order_id) AS total_orders\nFROM\n  SEMANTIC_VIEW(\n    'sales_extended',\n    DIMENSIONS\n      DATE_TRUNC('month', Order.Created_Date) AS order_month,\n    MEASURES\n      COUNT(Order.Id) AS total_orders\n  )\nGROUP BY\n  order_month\nORDER BY\n  order_month ASC`;
-                                onSqlEditChange?.(aiSql);
-                                setTestQueryState('idle');
-                                setSyntaxOk(false);
-                                setSqlDirty(true);
-                                hasEverTestedRef.current = true;
-                                setDraftState('idle');
-                                setDraftText('');
-                              }, 1600);
-                            }}
-                          >
-                            <SparkleSingle size={14} />
-                            {draftState === 'drafting' ? 'Drafting…' : 'Run'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="sql-editor-copy-wrap">
-                  <div className={`sql-editor-highlight-wrap${sqlDirty ? ' sql-wrap-dirty' : ''}`}>
-                    <div className="sql-editor-highlight-mirror code-editor" ref={mirrorRef}>
-                      <div className="line-numbers">
-                        {sqlEditValue.split('\n').map((_, i) => <div key={i}>{i + 1}</div>)}
-                      </div>
-                      <div className="code">
-                        {sqlEditValue.split('\n').map((line, i) => (
-                          <div key={i}>{highlightLine(line) || ' '}</div>
-                        ))}
-                      </div>
-                    </div>
-                    <textarea
-                      className="sql-edit-textarea sql-edit-textarea-over"
-                      value={sqlEditValue}
-                      onChange={e => handleSqlChange(e.target.value)}
-                      onScroll={e => {
-                        if (mirrorRef.current) {
-                          mirrorRef.current.scrollTop = e.currentTarget.scrollTop;
-                          mirrorRef.current.scrollLeft = e.currentTarget.scrollLeft;
-                        }
-                      }}
-                      spellCheck={false}
-                      autoComplete="off"
-                      autoFocus
-                    />
-                  </div>
-                  <button
-                    className={`sql-copy-btn${copied ? ' sql-copy-btn-copied' : ''}`}
-                    onClick={handleCopySql}
-                    title="Copy SQL"
-                    aria-label="Copy SQL"
-                  >
-                    {copied ? <Check size={14} /> : <Copy size={14} />}
-                  </button>
-                  </div>
-                </div>
             ) : (
               <QueryPanel sql={question.response.sql} />
             )}
-
           </div>
         </section>
 
@@ -503,7 +257,7 @@ export function QuestionDetail({
 
       {reEvaluating && (
         <div className="re-evaluating-blanket">
-          <div className="spinner" />
+          <DotSpinner />
           <div className="re-evaluating-text">Re-evaluating question with updated model...</div>
         </div>
       )}
