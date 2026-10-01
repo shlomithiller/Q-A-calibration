@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Info, SparkleSingle, Warning } from './Icons';
+import { ArrowLeft, Asterisk, Ban, Info, SparkleSingle, VerifiedCheck, Warning } from './Icons';
 import { questions as allQuestions } from '../data/questions';
 
 export type DualRunOutcome = 'robust' | 'overfitted' | 'stale-vq';
@@ -237,7 +237,6 @@ export function RegressionTestView({
   const total = rows.length;
   const vqPassedCount = rows.filter((r) => r.vqStatus === 'Passed').length;
   const vqFailedCount = rows.filter((r) => r.vqStatus === 'Failed').length;
-  const robustCount = rows.filter((r) => r.semanticFit === 'robust').length;
   const overfittedCount = rows.filter((r) => r.semanticFit === 'overfitted').length;
   const regressionCount = vqFailedCount;
   const passRate = total > 0 ? Math.round((vqPassedCount / total) * 100) : 0;
@@ -359,9 +358,8 @@ export function RegressionTestView({
         <div className="rt-results-toolbar">
           <span>
             {rows.length} questions
-            {isComplete
-              ? ` • ${vqPassedCount} VQ passed • ${robustCount} Robust • ${overfittedCount} Overfitted • ${vqFailedCount} Stale VQ`
-              : ''}
+            {` • ${vqPassedCount} passed • ${vqFailedCount} failed`}
+            {!isComplete ? ` • ${rows.filter((r) => r.vqStatus === 'Processing').length} in process` : ''}
           </span>
         </div>
         <div className="rt-results-table-wrap">
@@ -369,58 +367,51 @@ export function RegressionTestView({
             <thead>
               <tr>
                 <th>Question</th>
-                <th>VQ Path</th>
-                <th>Semantic Fit</th>
                 <th>Semantic Model</th>
+                <th>Classification</th>
+                <th>Test Result</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="rt-col-question">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (row.showResults) onOpenQuestion(row.id);
-                      }}
-                    >
-                      {row.question}
-                    </a>
-                  </td>
-                  <td>
-                    <span className={`rt-badge rt-badge-${row.vqStatus.toLowerCase()}`}>
-                      {row.vqStatus === 'Processing' ? 'Processing...' : row.vqStatus}
-                    </span>
-                  </td>
-                  <td>
-                    {row.semanticFit === 'processing' ? (
-                      <span className="rt-badge rt-badge-processing">Processing...</span>
-                    ) : row.semanticFit ? (
-                      <span className={`rt-badge rt-badge-fit-${row.semanticFit}`}>
-                        {row.semanticFit === 'stale-vq'
-                          ? 'Stale VQ'
-                          : row.semanticFit === 'overfitted'
-                            ? 'Overfitted'
-                            : 'Robust'}
+              {rows.map((row) => {
+                const isRegression = row.vqStatus === 'Failed';
+                const resultBusy = row.vqStatus === 'Processing' || row.vqStatus === 'Waiting';
+                return (
+                  <tr key={row.id}>
+                    <td className="rt-col-question">{row.question}</td>
+                    <td className="rt-col-model">{row.semanticModel}</td>
+                    <td>
+                      {isRegression ? (
+                        <span className="rt-badge rt-badge-class-regression">
+                          <Ban size={12} />
+                          Regression
+                        </span>
+                      ) : (
+                        <span className="rt-badge rt-badge-class-verified">
+                          <VerifiedCheck size={12} />
+                          Verified
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`rt-badge ${resultBusy ? 'rt-badge-processing' : `rt-badge-${row.vqStatus.toLowerCase()}`}`}>
+                        {resultBusy && <Asterisk size={12} />}
+                        {resultBusy ? 'Processing...' : row.vqStatus}
                       </span>
-                    ) : (
-                      <span className="rt-fit-blank">—</span>
-                    )}
-                  </td>
-                  <td>{row.semanticModel}</td>
-                  <td>
-                    <button
-                      className="rt-show-results"
-                      disabled={!row.showResults}
-                      onClick={() => onOpenQuestion(row.id)}
-                    >
-                      Show results
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <button
+                        className="rt-show-results"
+                        disabled={!row.showResults}
+                        onClick={() => onOpenQuestion(row.id)}
+                      >
+                        Show Results
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -250,6 +250,21 @@ export const Copy = (props: IconProps) => (
   </svg>
 );
 
+export const Ban = (props: IconProps) => (
+  <svg {...base(props)}>
+    <circle cx="12" cy="12" r="10" />
+    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+  </svg>
+);
+
+export const Asterisk = (props: IconProps) => (
+  <svg {...base(props)}>
+    <line x1="12" y1="2" x2="12" y2="22" />
+    <line x1="4.93" y1="6" x2="19.07" y2="18" />
+    <line x1="4.93" y1="18" x2="19.07" y2="6" />
+  </svg>
+);
+
 export const SparkleSingle = (props: IconProps) => (
   <svg {...base(props)} strokeWidth={0} stroke="none">
     <defs>

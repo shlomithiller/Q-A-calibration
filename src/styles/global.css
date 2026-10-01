@@ -4574,31 +4574,44 @@ a:hover {
 }
 
 .rt-col-question {
-  max-width: 500px;
+  max-width: 720px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--color-on-surface-2);
 }
 
-.rt-col-question a {
-  color: var(--color-brand);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
+.rt-col-model {
+  white-space: nowrap;
+  width: 170px;
 }
 
-.rt-col-question a:hover {
-  text-decoration: underline;
+.rt-results-table th:nth-child(3),
+.rt-results-table td:nth-child(3),
+.rt-results-table th:nth-child(4),
+.rt-results-table td:nth-child(4) {
+  width: 147px;
+}
+
+.rt-results-table th:nth-child(5),
+.rt-results-table td:nth-child(5) {
+  width: 117px;
 }
 
 /* Status badges */
 .rt-badge {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 2px 10px;
   border-radius: var(--radius-pill);
   font-size: 12px;
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
+}
+
+.rt-badge svg {
+  flex-shrink: 0;
 }
 
 .rt-badge-passed {
@@ -4646,30 +4659,39 @@ a:hover {
   color: var(--color-on-surface-muted);
 }
 
+.rt-badge-class-verified {
+  background: #ffffff;
+  color: #5c5c5c;
+  border: 1px solid #c9c9c9;
+}
+
+.rt-badge-class-regression {
+  background: #fddde3;
+  color: #b60554;
+}
+
 .rt-show-results {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--color-brand);
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--color-brand);
-  background: #fff;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+  font-size: 13px;
+  font-weight: var(--font-weight-regular);
+  line-height: 18px;
   white-space: nowrap;
 }
 
 .rt-show-results:hover:not(:disabled) {
-  background: var(--color-brand-95);
+  text-decoration: underline;
+  background: none;
 }
 
 .rt-show-results:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  border-color: var(--color-border-1);
-  color: var(--color-on-surface-1);
+  color: #b5b5ba;
+  cursor: default;
+  opacity: 1;
 }
 
 /* Regression badge in workbench table */
