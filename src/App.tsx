@@ -4,7 +4,7 @@ import { Workbench } from './components/Workbench';
 import { QuestionDetail } from './components/QuestionDetail';
 import { ClassificationPanel } from './components/ClassificationPanel';
 import type { PanelMode } from './components/ClassificationPanel';
-import { RegressionTestView } from './components/RegressionTestView';
+import { RegressionTestView, seedDualRunOutcomes, type DualRunOutcome } from './components/RegressionTestView';
 import { TestSuitesList } from './components/TestSuitesList';
 import { questions as seedQuestions } from './data/questions';
 import type { Classification, Question } from './data/questions';
@@ -12,12 +12,14 @@ import { CreateTestModal } from './components/CreateTestModal';
 import { DiffModal } from './components/DiffModal';
 import { Close, Check, SparkleSingle } from './components/Icons';
 import { SqlCurationModal } from './components/SqlCurationModal';
+import { AutoCalibrationView } from './components/AutoCalibrationView';
 
 type View =
   | { kind: 'list' }
   | { kind: 'detail'; questionId: string }
   | { kind: 'test-suites' }
-  | { kind: 'regression-test'; testName: string; questionIds: string[] };
+  | { kind: 'regression-test'; testName: string; questionIds: string[] }
+  | { kind: 'auto-calibration' };
 
 type ToastVariant = 'accurate' | 'inaccurate';
 interface ToastMsg {
@@ -42,6 +44,7 @@ export default function App() {
   const [showTestModal, setShowTestModal] = useState(false);
   const [showRerunDialog, setShowRerunDialog] = useState(false);
   const [testFailedIds, setTestFailedIds] = useState<Set<string>>(new Set());
+  const [testOutcomes, setTestOutcomes] = useState<Record<string, DualRunOutcome>>({});
   const [showCalibrationPanel, setShowCalibrationPanel] = useState(false);
   const [calibrationPanelState, setCalibrationPanelState] = useState<'analyzing' | 'generating' | 'results'>('analyzing');
   const [lastTestName, setLastTestName] = useState('');
@@ -245,16 +248,18 @@ export default function App() {
   const handleCreateTest = (name: string, _description: string, questionIds: string[]) => {
     setShowTestModal(false);
     const testName = name || 'My Batch Test';
-    // Pick 4 random questions to fail
-    const shuffled = [...questionIds].sort(() => Math.random() - 0.5);
-    const failIds = new Set(shuffled.slice(0, Math.min(4, shuffled.length)));
+    const outcomes = seedDualRunOutcomes(questionIds);
+    const failIds = new Set(
+      questionIds.filter((id) => outcomes[id] === 'stale-vq'),
+    );
+    setTestOutcomes(outcomes);
     setTestFailedIds(failIds);
     setShowCalibrationPanel(false);
     setTestCompleted(false);
     setLastTestName(testName);
     setLastTestQuestionIds(questionIds);
 
-    // Mark failed questions as 'regression' in the data
+    // Only VQ Path failures update question classification
     setQuestions((prev) =>
       prev.map((q) => (failIds.has(q.id) ? { ...q, classification: 'regression' as Classification } : q)),
     );
@@ -283,6 +288,13 @@ export default function App() {
       prev.map((q) => (testFailedIds.has(q.id) ? { ...q, classification: 'accurate' as Classification } : q)),
     );
     setTestFailedIds(new Set());
+    setTestOutcomes((prev) => {
+      const next: Record<string, DualRunOutcome> = {};
+      Object.keys(prev).forEach((id) => {
+        next[id] = 'robust';
+      });
+      return next;
+    });
 
     // Re-trigger the view to re-animate
     const { testName, questionIds } = view;
@@ -324,6 +336,7 @@ export default function App() {
             }
           }}
           onNewTest={() => setShowTestModal(true)}
+          onAutoCalibrate={() => setView({ kind: 'auto-calibration' })}
           recentTestId={lastTestQuestionIds.length > 0 ? 'recent' : undefined}
           recentTestName={lastTestName}
         />
@@ -334,13 +347,22 @@ export default function App() {
         <RegressionTestView
           testName={view.testName}
           questionIds={view.questionIds}
-          failedIds={testFailedIds}
+          outcomes={testOutcomes}
           onBack={() => setView({ kind: 'test-suites' })}
           onOpenQuestion={openQuestionFromTest}
           onCalibrate={handleTestCalibrate}
+          onAutoCalibrate={() => setView({ kind: 'auto-calibration' })}
           onRetest={handleRetest}
           skipAnimation={testCompleted}
           onComplete={() => setTestCompleted(true)}
+        />
+      );
+    }
+    if (view.kind === 'auto-calibration') {
+      return (
+        <AutoCalibrationView
+          onBack={() => setView({ kind: 'test-suites' })}
+          onApplied={(modelName) => showToast({ variant: 'accurate', text: `Calibration applied to ${modelName}` })}
         />
       );
     }
@@ -497,6 +519,7 @@ export default function App() {
         view={view.kind}
         onBackToCalibration={backToList}
         onNavigateToTests={() => setView({ kind: 'test-suites' })}
+        onNavigateToAutoCalibration={() => setView({ kind: 'auto-calibration' })}
         rightPanel={rightPanel}
       >
         {renderBody()}

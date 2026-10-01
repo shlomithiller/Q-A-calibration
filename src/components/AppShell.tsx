@@ -1,9 +1,10 @@
 import { Grid, Home, Bell, AgentAstro, ChevronDown, ArrowLeft } from './Icons';
 
 interface AppShellProps {
-  view: 'list' | 'detail' | 'test-suites' | 'regression-test';
+  view: 'list' | 'detail' | 'test-suites' | 'regression-test' | 'auto-calibration';
   onBackToCalibration: () => void;
   onNavigateToTests?: () => void;
+  onNavigateToAutoCalibration?: () => void;
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
 }
@@ -12,6 +13,7 @@ export function AppShell({
   view,
   onBackToCalibration,
   onNavigateToTests,
+  onNavigateToAutoCalibration,
   children,
   rightPanel,
 }: AppShellProps) {
@@ -53,10 +55,11 @@ export function AppShell({
             <span className="sidebar-title">Q&amp;A Calibration</span>
           </div>
           <nav className="nav">
-            {view === 'regression-test' || view === 'test-suites' ? (
+            {view === 'regression-test' || view === 'test-suites' || view === 'auto-calibration' ? (
               <>
                 <button className="nav-item" onClick={onBackToCalibration}>All Questions</button>
-                <button className="nav-item active" onClick={onNavigateToTests}>Regression Tests</button>
+                <button className={`nav-item ${view === 'auto-calibration' ? '' : 'active'}`} onClick={onNavigateToTests}>Regression Tests</button>
+                <button className={`nav-item ${view === 'auto-calibration' ? 'active' : ''}`} onClick={onNavigateToAutoCalibration}>Auto Calibration</button>
                 <div className="nav-divider" />
                 <button className="nav-item">Verified Questions</button>
               </>
@@ -64,6 +67,7 @@ export function AppShell({
               <>
                 <button className="nav-item active">All Questions</button>
                 <button className="nav-item" onClick={onNavigateToTests}>Regression Tests</button>
+                <button className="nav-item" onClick={onNavigateToAutoCalibration}>Auto Calibration</button>
                 <div className="nav-divider" />
                 <button className="nav-item">Verified Questions</button>
               </>

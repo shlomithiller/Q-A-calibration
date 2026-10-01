@@ -1,4 +1,4 @@
-import { Plus } from './Icons';
+import { Plus, SparkleSingle } from './Icons';
 
 interface TestSuite {
   id: string;
@@ -22,6 +22,7 @@ const MOCK_SUITES: TestSuite[] = [
 interface TestSuitesListProps {
   onOpenSuite: (id: string) => void;
   onNewTest: () => void;
+  onAutoCalibrate?: () => void;
   recentTestId?: string;
   recentTestName?: string;
 }
@@ -32,7 +33,7 @@ function getPassRateClass(rate: number): string {
   return 'ts-pass-rate-low';
 }
 
-export function TestSuitesList({ onOpenSuite, onNewTest, recentTestId, recentTestName }: TestSuitesListProps) {
+export function TestSuitesList({ onOpenSuite, onNewTest, onAutoCalibrate, recentTestId, recentTestName }: TestSuitesListProps) {
   const suites: TestSuite[] = recentTestId
     ? [{ id: recentTestId, name: recentTestName || 'My Batch Test', description: 'Regression test for selected questions', agent: 'Concierge Sales', lastRun: 'Just now', lastRunBy: 'Sarah Adams', passRate: 80, status: 'Completed' }, ...MOCK_SUITES]
     : MOCK_SUITES;
@@ -45,6 +46,16 @@ export function TestSuitesList({ onOpenSuite, onNewTest, recentTestId, recentTes
           <Plus size={14} /> New Test
         </button>
       </div>
+
+      {onAutoCalibrate && (
+        <div className="ac-banner">
+          <div className="ac-banner-left">
+            <SparkleSingle size={14} />
+            <span>New calibration suggestions are available for 3 models</span>
+          </div>
+          <button type="button" onClick={onAutoCalibrate}>Auto Calibrate</button>
+        </div>
+      )}
 
       <div className="ts-table-card">
         <div className="ts-toolbar">

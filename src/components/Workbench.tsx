@@ -3,10 +3,6 @@ import type { Question } from '../data/questions';
 import {
   Search,
   Refresh,
-  FilterIcon,
-  Sparkles,
-  Plus,
-  Upload,
   ChevronDown,
   ThumbsUp,
   ThumbsDown,
@@ -22,14 +18,20 @@ interface WorkbenchProps {
 
 export function Workbench({ questions, onOpenQuestion }: WorkbenchProps) {
   const [search, setSearch] = useState('');
+  const [passRate, setPassRate] = useState('all');
+  const [agent, setAgent] = useState('any');
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  const agents = [...new Set(questions.map((q) => q.semanticModel))];
+
   const filtered = questions.filter((q) => {
-    if (!search) return true;
-    return q.text.toLowerCase().includes(search.toLowerCase());
+    if (search && !q.text.toLowerCase().includes(search.toLowerCase())) return false;
+    if (passRate === 'passed' && q.classification !== 'accurate') return false;
+    if (passRate === 'failed' && q.classification !== 'regression' && q.classification !== 'inaccurate') return false;
+    if (agent !== 'any' && q.semanticModel !== agent) return false;
+    return true;
   });
 
-  const goldenCount = questions.filter((q) => q.classification === 'accurate' || q.classification === 'regression').length;
   const regressionCount = questions.filter((q) => q.classification === 'regression').length;
 
   const allChecked = filtered.length > 0 && filtered.every((q) => selected.has(q.id));
@@ -44,32 +46,16 @@ export function Workbench({ questions, onOpenQuestion }: WorkbenchProps) {
     setSelected(next);
   };
 
-  const overallHealth = goldenCount > 0
-    ? Math.round(((goldenCount - regressionCount) / goldenCount) * 100)
-    : 100;
+  const resetFilters = () => {
+    setSearch('');
+    setPassRate('all');
+    setAgent('any');
+  };
 
   return (
     <div className="workbench-layout">
       <div className="workbench-page-header">
         <h1 className="workbench-page-title">All Questions</h1>
-        <div className="workbench-metrics">
-          <div className="wb-metric-card">
-            <span className="wb-metric-label">Golden Dataset</span>
-            <span className="wb-metric-value">{goldenCount} questions</span>
-          </div>
-          <div className="wb-metric-card">
-            <span className="wb-metric-label">Regression</span>
-            <span className={`wb-metric-value ${regressionCount > 0 ? 'wb-metric-danger' : ''}`}>
-              {regressionCount}
-            </span>
-          </div>
-          <div className="wb-metric-card">
-            <span className="wb-metric-label">Overall Accuracy</span>
-            <span className={`wb-metric-value ${overallHealth < 90 ? 'wb-metric-warn' : overallHealth === 100 ? 'wb-metric-success' : ''}`}>
-              {overallHealth}%
-            </span>
-          </div>
-        </div>
       </div>
       {regressionCount > 0 && (
         <div className="workbench-regression-alert">
@@ -85,47 +71,34 @@ export function Workbench({ questions, onOpenQuestion }: WorkbenchProps) {
       <div className="workbench-toolbar">
         <span className="count">{filtered.length} questions</span>
         <div className="toolbar-tools">
-          <button className="select">
-            Any classification <ChevronDown size={14} className="chevron" />
-          </button>
-          <button className="select">
-            Any model <ChevronDown size={14} className="chevron" />
-          </button>
+          <label className="select">
+            <select aria-label="Pass Rate" value={passRate} onChange={(e) => setPassRate(e.target.value)}>
+              <option value="all">Pass Rate</option>
+              <option value="passed">Passed</option>
+              <option value="failed">Failed</option>
+            </select>
+            <ChevronDown size={12} className="chevron" />
+          </label>
+          <label className="select">
+            <select aria-label="Agent" value={agent} onChange={(e) => setAgent(e.target.value)}>
+              <option value="any">Any agent</option>
+              {agents.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="chevron" />
+          </label>
           <div className="search">
             <Search size={14} />
             <input
               placeholder="Search..."
+              aria-label="Search questions"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="btn-group-icon">
-            <button className="btn-group-icon-item" aria-label="Refresh">
-              <Refresh size={14} />
-            </button>
-            <button className="btn-group-icon-item" aria-label="Filter">
-              <FilterIcon size={14} />
-            </button>
-          </div>
-        </div>
-        <div className="toolbar-actions">
-          <div className="btn-group">
-            <button className="btn-group-item">
-              <Sparkles size={14} /> Generate
-            </button>
-            <button className="btn-group-item">
-              <Plus size={14} /> Add
-            </button>
-            <button className="btn-group-item">
-              <Upload size={14} /> Import
-            </button>
-          </div>
-          <button
-            className="btn btn-brand"
-            disabled={filtered.length === 0}
-            onClick={() => filtered[0] && onOpenQuestion(filtered[0].id)}
-          >
-            Review
+          <button className="wb-refresh" aria-label="Refresh" onClick={resetFilters}>
+            <Refresh size={14} />
           </button>
         </div>
       </div>
