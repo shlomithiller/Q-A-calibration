@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Close, ImpactArrow, Info, Search, SparkleSingle, VerifiedCheck } from './Icons';
+import { AgentAstro, ArrowLeft, Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Close, ImpactArrow, Info, Search, SparkleSingle, VerifiedCheck } from './Icons';
 
 type Impact = 'High' | 'Medium' | 'Low';
 type ScoreTone = 'warning' | 'success' | 'error';
@@ -190,7 +190,7 @@ export function CalibrationFlow({ onBack, onSaved }: CalibrationFlowProps) {
   const remainingSeconds = calibrating ? Math.max(0, Math.ceil((CALIBRATE_MS - elapsed) / 1000)) : 0;
 
   if (reviewModel) {
-    return <ModelVqPage model={reviewModel} onBack={() => setReviewModelId(null)} onSaved={onSaved} onCalibrateAll={calibrateAll} />;
+    return <ModelVqPage model={reviewModel} onBack={() => setReviewModelId(null)} onSaved={onSaved} />;
   }
 
   return (
@@ -268,7 +268,7 @@ const IMPACTED_ROWS = {
   preference: [1, 2, 3, 4, 5, 6, 9, 10, 11, 12],
 } as const;
 
-function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: CalibrationModel; onBack: () => void; onSaved: (message: string) => void; onCalibrateAll: () => void }) {
+function ModelVqPage({ model, onBack, onSaved }: { model: CalibrationModel; onBack: () => void; onSaved: (message: string) => void }) {
   const isC360 = model.id === 'c360';
   const [impacted, setImpacted] = useState<'calculated' | 'preference' | null>(null);
   const [phase, setPhase] = useState<'stale' | 'scanning' | 'ready' | 'syncing' | 'synced'>(isC360 ? 'stale' : 'ready');
@@ -276,13 +276,18 @@ function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: Calibr
   const scanFrame = useRef(0);
   const highlighted = impacted ? IMPACTED_ROWS[impacted] : [];
   const busy = phase === 'scanning' || phase === 'syncing';
+  const showPanel = phase !== 'scanning';
+  const syncedScore = 80;
+  const elapsedSec = Math.floor(scanProgress * 120);
   const rows = (isC360 ? VQS.map((row, index) => (C360_FAIL.has(index) ? { ...row, result: 'Fail' as const } : row)) : VQS)
     .map((row) => (phase === 'synced' ? { ...row, result: 'Pass' as const } : row));
-  const offers = phase === 'stale'
-    ? (['preference'] as const)
-    : isC360
-      ? (['preference', 'calculated'] as const)
-      : (['calculated', 'preference'] as const);
+  const offers = phase === 'syncing' || phase === 'synced'
+    ? []
+    : phase === 'stale'
+      ? (['preference'] as const)
+      : isC360
+        ? (['preference', 'calculated'] as const)
+        : (['calculated', 'preference'] as const);
 
   useEffect(() => () => cancelAnimationFrame(scanFrame.current), []);
 
@@ -345,87 +350,113 @@ function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: Calibr
         </div>
       </div>
 
-      {phase !== 'synced' && (
-      <div className={`vq-details ${busy ? 'vq-details-scanning' : ''}`}>
-        <div className="vq-details-row">
-          <span>
-            <strong>Model match VQ:</strong>{' '}
-            {phase === 'stale' ? null : busy ? (
-              <span className="ac-badge ac-badge-neutral cal-recalculating"><span className="cal-spinner" /> Recalculating</span>
-            ) : (
-              <span className={`ac-badge ${matchClass(model.score)}`}>{model.score}%</span>
-            )}
-          </span>
-          <span><strong>Run Time:</strong> 20 seconds</span>
-          <span><strong>Last Modified</strong> A week ago</span>
-        </div>
-        {busy && (
-          <div className="cal-scan-progress">
-            <div className="cal-scan-label">
-              <strong>Processing:</strong> {Math.round(scanProgress * 100)}%
-              <span className="cal-scan-remaining">Estimated Remaining Time: {Math.max(0, Math.ceil((1 - scanProgress) * 30))}sec</span>
-            </div>
-            <div className="cal-scan-track">
-              <div className="rt-progress-bar">
-                <div className="rt-progress-fill" style={{ width: `${Math.round(scanProgress * 100)}%` }} />
+      <div className={`vq-split ${showPanel ? 'vq-split-open' : ''}`}>
+        <div className="vq-main">
+          <div className={`vq-details ${busy ? 'vq-details-scanning' : ''}`}>
+              <div className="vq-details-row">
+                <span>
+                  <strong>Model match VQ:</strong>{' '}
+                  {phase === 'stale' ? null : busy ? (
+                    <span className="ac-badge ac-badge-neutral cal-recalculating"><span className="cal-spinner" /> Recalculating</span>
+                  ) : phase === 'synced' ? (
+                    <span className={`ac-badge ${matchClass(syncedScore)}`}>{syncedScore}%</span>
+                  ) : (
+                    <span className={`ac-badge ${matchClass(model.score)}`}>{model.score}%</span>
+                  )}
+                </span>
+                <span><strong>Run Time:</strong> 20 seconds</span>
+                <span><strong>Last Modified</strong> A week ago</span>
               </div>
-              <button type="button" className="cal-scan-stop" aria-label="Stop scan" onClick={phase === 'syncing' ? stopSync : stopRescan} />
+              {busy && (
+                <div className="cal-scan-progress">
+                  <div className="cal-scan-label">
+                    <span>
+                      <strong>Processing:</strong> {Math.round(scanProgress * 100)}%
+                      {phase === 'syncing' && (
+                        <span className="cal-scan-elapsed"> ({Math.floor(elapsedSec / 60)}m {elapsedSec % 60}s elapsed)</span>
+                      )}
+                    </span>
+                    <span className="cal-scan-remaining">Estimated Remaining Time: {Math.max(0, Math.ceil((1 - scanProgress) * 30))}sec</span>
+                  </div>
+                  <div className="cal-scan-track">
+                    <div className="rt-progress-bar">
+                      <div className="rt-progress-fill" style={{ width: `${Math.round(scanProgress * 100)}%` }} />
+                    </div>
+                    <button type="button" className="cal-scan-stop" aria-label="Stop scan" onClick={phase === 'syncing' ? stopSync : stopRescan} />
+                  </div>
+                  <p>Retrieving all semantic model's verified queries</p>
+                </div>
+              )}
             </div>
-            <p>Retrieving all semantic model's verified queries</p>
+
+          {phase === 'stale' && (
+            <div className="vq-stale-notice" role="status">
+              <Search size={14} />
+              <span>The model has changed or Verified Queries have been added since the last calibration scan.</span>
+              <button type="button" className="vq-rescan-link" onClick={startRescan}>Re-scan</button>
+            </div>
+          )}
+
+          {phase === 'synced' && (
+            <div className="vq-agent-strip" role="status">
+              <span className="agent-avatar" aria-hidden>
+                <AgentAstro size={18} />
+              </span>
+              <p>Model match VQ changed from <strong>{model.score}%</strong> to <strong>{syncedScore}%</strong>.</p>
+            </div>
+          )}
+
+          <div className={`ts-table-card ${busy ? 'vq-table-scanning' : ''}`}>
+            <div className="vq-table-frame">
+            <table className="ts-table vq-table">
+              <thead>
+                <tr>
+                  <th>Representative Questions</th>
+                  <th>Test Result</th>
+                  <th>Classification</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr key={`${row.question}-${index}`} className={highlighted.includes(index) ? 'vq-row-impacted' : undefined}>
+                    <td className="vq-question">{row.question}</td>
+                    <td>
+                      {row.result === 'Fail' ? (
+                        <span className="rt-badge rt-badge-failed"><CircleX size={14} /> Fail</span>
+                      ) : (
+                        <span className="rt-badge rt-badge-passed"><CircleCheck size={14} /> Pass</span>
+                      )}
+                    </td>
+                    <td>
+                      {row.classification === 'Regression' ? (
+                        <span className="rt-badge rt-badge-class-regression"><Ban size={12} /> Regression</span>
+                      ) : (
+                        <span className="rt-badge rt-badge-class-verified"><VerifiedCheck size={12} /> Verified</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {phase === 'scanning' && <div className="vq-table-spinner" aria-hidden />}
+            {phase === 'syncing' && (
+              <>
+                <div className="vq-table-mask" aria-hidden />
+                <svg className="vq-generic-loader" viewBox="0 0 53 53" role="status" aria-label="Loading">
+                  <path fill="#5C5C5C" d="M27.73 0H24.91C24.158 0 23.5.658 23.5 1.41V13.63C23.5 14.382 24.158 15.04 24.91 15.04H27.73C28.482 15.04 29.14 14.382 29.14 13.63V1.41C29.14.658 28.482 0 27.73 0ZM51.23 23.5H39.01C38.258 23.5 37.6 24.158 37.6 24.91V27.73C37.6 28.482 38.258 29.14 39.01 29.14H51.23C51.982 29.14 52.64 28.482 52.64 27.73V24.91C52.64 24.158 51.982 23.5 51.23 23.5ZM27.73 37.6H24.91C24.158 37.6 23.5 38.258 23.5 39.01V51.23C23.5 51.982 24.158 52.64 24.91 52.64H27.73C28.482 52.64 29.14 51.982 29.14 51.23V39.01C29.14 38.258 28.482 37.6 27.73 37.6ZM15.04 27.73V24.91C15.04 24.158 14.382 23.5 13.63 23.5H1.41C.658 23.5 0 24.158 0 24.91V27.73C0 28.482.658 29.14 1.41 29.14H13.63C14.382 29.14 15.04 28.482 15.04 27.73ZM35.25 19.364C35.814 19.928 36.66 19.928 37.224 19.364L45.872 10.716C46.436 10.152 46.436 9.306 45.872 8.742L43.898 6.768C43.334 6.204 42.488 6.204 41.924 6.768L33.276 15.416C32.712 15.98 32.712 16.826 33.276 17.39L35.25 19.364ZM37.318 33.276C36.754 32.712 35.908 32.712 35.344 33.276L33.37 35.25C32.806 35.814 32.806 36.66 33.37 37.224L42.018 45.872C42.582 46.436 43.428 46.436 43.992 45.872L45.966 43.898C46.53 43.334 46.53 42.488 45.966 41.924L37.318 33.276ZM17.39 33.276C16.826 32.712 15.98 32.712 15.416 33.276L6.768 41.924C6.204 42.488 6.204 43.334 6.768 43.898L8.742 45.872C9.306 46.436 10.152 46.436 10.716 45.872L19.364 37.224C19.928 36.66 19.928 35.814 19.364 35.25L17.39 33.276ZM10.716 6.674C10.152 6.11 9.306 6.11 8.742 6.674L6.768 8.648C6.204 9.212 6.204 10.058 6.768 10.622L15.416 19.27C15.98 19.834 16.826 19.834 17.39 19.27L19.364 17.296C19.928 16.732 19.928 15.886 19.364 15.322L10.716 6.674Z" />
+                </svg>
+              </>
+            )}
+            </div>
           </div>
-        )}
-      </div>
-      )}
-
-      {phase === 'stale' && (
-        <div className="vq-stale-notice" role="status">
-          <Search size={14} />
-          <span>The model has changed or Verified Queries have been added since the last calibration scan.</span>
-          <button type="button" className="vq-rescan-link" onClick={startRescan}>Re-scan</button>
         </div>
-      )}
-
-      <div className={`vq-split ${!busy && phase !== 'synced' ? 'vq-split-open' : ''}`}>
-      <div className={`ts-table-card ${busy ? 'vq-table-scanning' : ''}`}>
-        <table className="ts-table vq-table">
-          <thead>
-            <tr>
-              <th>Representative Questions</th>
-              <th>Test Result</th>
-              <th>Classification</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
-              <tr key={`${row.question}-${index}`} className={highlighted.includes(index) ? 'vq-row-impacted' : undefined}>
-                <td className="vq-question">{row.question}</td>
-                <td>
-                  {row.result === 'Fail' ? (
-                    <span className="rt-badge rt-badge-failed"><CircleX size={14} /> Fail</span>
-                  ) : (
-                    <span className="rt-badge rt-badge-passed"><CircleCheck size={14} /> Pass</span>
-                  )}
-                </td>
-                <td>
-                  {row.classification === 'Regression' ? (
-                    <span className="rt-badge rt-badge-class-regression"><Ban size={12} /> Regression</span>
-                  ) : (
-                    <span className="rt-badge rt-badge-class-verified"><VerifiedCheck size={12} /> Verified</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {busy && <div className="vq-table-spinner" aria-hidden />}
-      </div>
-        {!busy && phase !== 'synced' && (
+        {showPanel && (
           <SuggestionPanel
             offers={[...offers]}
+            applied={phase === 'syncing' || phase === 'synced'}
             onClose={onBack}
             onCalibrate={(label) => onSaved(`${label} applied on ${model.name}`)}
             onSync={startSync}
-            onCalibrateAll={onCalibrateAll}
             impacted={impacted}
             onImpacted={setImpacted}
           />
@@ -435,20 +466,30 @@ function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: Calibr
   );
 }
 
+function AppliedEmpty() {
+  return (
+    <div className="vq-panel-empty">
+      <img className="vq-panel-empty-illo" src="/illustrations/applied-calibrations.png" alt="" />
+      <p className="vq-panel-empty-title">you have applied all calibration suggestions.</p>
+      <p className="vq-panel-empty-sub">Analysing Score</p>
+    </div>
+  );
+}
+
 function SuggestionPanel({
   offers,
+  applied = false,
   onClose,
   onCalibrate,
   onSync,
-  onCalibrateAll,
   impacted,
   onImpacted,
 }: {
   offers: Array<'calculated' | 'preference'>;
+  applied?: boolean;
   onClose: () => void;
   onCalibrate: (label: string) => void;
   onSync: () => void;
-  onCalibrateAll: () => void;
   impacted: 'calculated' | 'preference' | null;
   onImpacted: (value: 'calculated' | 'preference' | null) => void;
 }) {
@@ -524,6 +565,7 @@ function SuggestionPanel({
             <span className="sr-only">Calibration type</span>
             <select
               aria-label="Calibration type"
+              disabled={applied}
               value={typeFilter}
               onChange={(event) => {
                 const next = event.target.value;
@@ -544,6 +586,7 @@ function SuggestionPanel({
             <span className="sr-only">Impact</span>
             <select
               aria-label="Impact"
+              disabled={applied}
               value={impactFilter}
               onChange={(event) => {
                 const next = event.target.value;
@@ -561,19 +604,22 @@ function SuggestionPanel({
             <ChevronDown size={12} />
           </label>
         </div>
-        <div className="analysis-summary">
-          <div className="analysis-summary-header">
-            <SparkleSingle size={16} className="analysis-summary-icon" />
-            <span className="analysis-summary-title">Analysis Summary</span>
+        {offers.length > 0 && (
+          <div className="analysis-summary">
+            <div className="analysis-summary-header">
+              <SparkleSingle size={16} className="analysis-summary-icon" />
+              <span className="analysis-summary-title">Analysis Summary</span>
+            </div>
+            <p className="analysis-summary-body">
+              Based on your feedback, the agent confirmed a mismatch between your intent and the semantic routing: the system mapped the query to a standard platform metric (<strong>Opportunity.Amount</strong>), overlooking your specific custom data definitions. To resolve this, we recommend applying the following calibration:
+            </p>
           </div>
-          <p className="analysis-summary-body">
-            Based on your feedback, the agent confirmed a mismatch between your intent and the semantic routing: the system mapped the query to a standard platform metric (<strong>Opportunity.Amount</strong>), overlooking your specific custom data definitions. To resolve this, we recommend applying the following calibration:
-          </p>
-        </div>
+        )}
         {offers.map((kind) => (kind === 'calculated' ? calculatedCard : preferenceCard))}
+        {applied && <AppliedEmpty />}
       </div>
       <div className="vq-panel-footer">
-        <button type="button" className="btn btn-outlined" onClick={onCalibrateAll}>Calibrate All</button>
+        <button type="button" className="btn btn-outlined" onClick={onSync} disabled={applied}>Calibrate All</button>
       </div>
       {step === 'calculated' && (
         <CalculatedFieldModal
@@ -758,7 +804,7 @@ function PreferenceModal({ onClose, onAdd }: { onClose: () => void; onAdd: () =>
           <div className="ac-modal-footer-right">
             <button type="button" className="btn btn-outlined" onClick={onClose}>Cancel</button>
             <button type="button" className="btn btn-outlined" onClick={onClose}>Skip</button>
-            <button type="button" className="btn btn-brand" onClick={onAdd}>Save &amp; Synch</button>
+            <button type="button" className="btn btn-brand" onClick={onAdd}>Save</button>
           </div>
         </footer>
       </div>

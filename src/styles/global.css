@@ -7548,7 +7548,7 @@ a:hover {
   cursor: pointer;
 }
 
-.vq-table-scanning {
+.vq-table-frame {
   position: relative;
 }
 
@@ -7570,6 +7570,27 @@ a:hover {
   opacity: 1;
 }
 
+.vq-table-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.vq-generic-loader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: 53px;
+  height: 53px;
+  margin: -26px 0 0 -26px;
+  opacity: 0.2;
+  animation: cal-spin 1s linear infinite;
+  pointer-events: none;
+}
+
 .vq-details strong {
   font-weight: 600;
 }
@@ -7586,6 +7607,14 @@ a:hover {
   align-items: stretch;
   gap: 16px;
   min-height: 0;
+}
+
+.vq-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .vq-split .ts-table-card {
@@ -7622,10 +7651,71 @@ a:hover {
 .vq-suggest-panel {
   width: 396px;
   flex-shrink: 0;
+  align-self: stretch;
   background: #fff;
   border: 1px solid #e5e5e5;
   border-radius: 0 20px 20px 0;
-  max-height: calc(100vh - 220px);
+  max-height: none;
+}
+
+.vq-suggest-panel .calibration-side-panel-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.vq-agent-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.vq-agent-strip p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: #2e2e2e;
+}
+
+.vq-agent-strip strong {
+  font-weight: 700;
+}
+
+.vq-panel-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 280px;
+  padding: 32px 28px 56px;
+  text-align: center;
+}
+
+.vq-panel-empty-illo {
+  width: 220px;
+  height: auto;
+}
+
+.vq-panel-empty-title {
+  max-width: 280px;
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 30px;
+  color: #001e5b;
+}
+
+.vq-panel-empty-sub {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  color: #5c5c5c;
 }
 
 .vq-suggest-panel .analysis-summary {
@@ -7746,6 +7836,24 @@ a:hover {
   max-width: 180px;
 }
 
+.vq-filters .ac-select select:disabled {
+  color: #aeaeae;
+  border-color: #e5e5e5;
+  background: #fff;
+  cursor: not-allowed;
+}
+
+.vq-filters .ac-select:has(select:disabled) svg {
+  color: #aeaeae;
+}
+
+.vq-panel-footer .btn:disabled {
+  color: #aeaeae;
+  border-color: #e5e5e5;
+  background: #fff;
+  cursor: not-allowed;
+}
+
 .vq-impacted {
   display: inline-flex;
   align-items: center;
@@ -7817,6 +7925,11 @@ a:hover {
   gap: 12px;
   color: #0b5cab;
   font-size: 13px;
+  font-weight: 600;
+}
+
+.cal-scan-elapsed {
+  color: #0b5cab;
   font-weight: 600;
 }
 
