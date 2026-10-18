@@ -13,13 +13,15 @@ import { DiffModal } from './components/DiffModal';
 import { Close, Check, SparkleSingle } from './components/Icons';
 import { SqlCurationModal } from './components/SqlCurationModal';
 import { AutoCalibrationView } from './components/AutoCalibrationView';
+import { CalibrationFlow } from './components/CalibrationFlow';
 
 type View =
   | { kind: 'list' }
   | { kind: 'detail'; questionId: string }
   | { kind: 'test-suites' }
   | { kind: 'regression-test'; testName: string; questionIds: string[] }
-  | { kind: 'auto-calibration' };
+  | { kind: 'auto-calibration' }
+  | { kind: 'calibration' };
 
 type ToastVariant = 'accurate' | 'inaccurate';
 interface ToastMsg {
@@ -29,7 +31,7 @@ interface ToastMsg {
 
 export default function App() {
   const [questions, setQuestions] = useState<Question[]>(seedQuestions);
-  const [view, setView] = useState<View>({ kind: 'list' });
+  const [view, setView] = useState<View>({ kind: 'test-suites' });
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const initialReviewable = useRef(
     seedQuestions.filter((q) => q.classification === 'new').length,
@@ -351,10 +353,24 @@ export default function App() {
           onBack={() => setView({ kind: 'test-suites' })}
           onOpenQuestion={openQuestionFromTest}
           onCalibrate={handleTestCalibrate}
-          onAutoCalibrate={() => setView({ kind: 'auto-calibration' })}
+          onAutoCalibrate={() => setView({ kind: 'calibration' })}
           onRetest={handleRetest}
           skipAnimation={testCompleted}
           onComplete={() => setTestCompleted(true)}
+        />
+      );
+    }
+    if (view.kind === 'calibration') {
+      return (
+        <CalibrationFlow
+          onBack={() => {
+            if (lastTestQuestionIds.length > 0) {
+              setView({ kind: 'regression-test', testName: lastTestName, questionIds: lastTestQuestionIds });
+            } else {
+              setView({ kind: 'test-suites' });
+            }
+          }}
+          onSaved={(message) => showToast({ variant: 'accurate', text: message })}
         />
       );
     }
@@ -519,7 +535,7 @@ export default function App() {
         view={view.kind}
         onBackToCalibration={backToList}
         onNavigateToTests={() => setView({ kind: 'test-suites' })}
-        onNavigateToAutoCalibration={() => setView({ kind: 'auto-calibration' })}
+        onNavigateToAutoCalibration={() => setView({ kind: 'calibration' })}
         rightPanel={rightPanel}
       >
         {renderBody()}

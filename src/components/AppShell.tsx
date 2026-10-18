@@ -1,7 +1,7 @@
 import { Grid, Home, Bell, AgentAstro, ChevronDown, ArrowLeft } from './Icons';
 
 interface AppShellProps {
-  view: 'list' | 'detail' | 'test-suites' | 'regression-test' | 'auto-calibration';
+  view: 'list' | 'detail' | 'test-suites' | 'regression-test' | 'auto-calibration' | 'calibration' | 'semantic-model';
   onBackToCalibration: () => void;
   onNavigateToTests?: () => void;
   onNavigateToAutoCalibration?: () => void;
@@ -55,18 +55,18 @@ export function AppShell({
             <span className="sidebar-title">Q&amp;A Calibration</span>
           </div>
           <nav className="nav">
-            {view === 'regression-test' || view === 'test-suites' || view === 'auto-calibration' ? (
+            {view === 'regression-test' || view === 'test-suites' || view === 'auto-calibration' || view === 'calibration' ? (
               <>
                 <button className="nav-item" onClick={onBackToCalibration}>All Questions</button>
-                <button className={`nav-item ${view === 'auto-calibration' ? '' : 'active'}`} onClick={onNavigateToTests}>Regression Tests</button>
-                <button className={`nav-item ${view === 'auto-calibration' ? 'active' : ''}`} onClick={onNavigateToAutoCalibration}>Auto Calibration</button>
+                <button className={`nav-item ${view === 'calibration' || view === 'auto-calibration' ? '' : 'active'}`} onClick={onNavigateToTests}>Batch Regression Suites</button>
+                <button className={`nav-item ${view === 'calibration' ? 'active' : ''}`} onClick={() => onNavigateToAutoCalibration?.()}>Calibration</button>
                 <div className="nav-divider" />
                 <button className="nav-item">Verified Questions</button>
               </>
             ) : (
               <>
                 <button className="nav-item active">All Questions</button>
-                <button className="nav-item" onClick={onNavigateToTests}>Regression Tests</button>
+                <button className="nav-item" onClick={onNavigateToTests}>Batch Regression Suites</button>
                 <button className="nav-item" onClick={onNavigateToAutoCalibration}>Auto Calibration</button>
                 <div className="nav-divider" />
                 <button className="nav-item">Verified Questions</button>

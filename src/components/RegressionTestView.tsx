@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Asterisk, Ban, Info, SparkleSingle, VerifiedCheck, Warning } from './Icons';
+import { ArrowLeft, Asterisk, Ban, Info, SparkleSingle, VerifiedCheck } from './Icons';
 import { questions as allQuestions } from '../data/questions';
 
 export type DualRunOutcome = 'robust' | 'overfitted' | 'stale-vq';
@@ -33,6 +33,7 @@ interface RegressionTestViewProps {
   onAutoCalibrate?: () => void;
   onRetest: () => void;
   skipAnimation?: boolean;
+  showSuggestionBanner?: boolean;
   onComplete?: () => void;
 }
 
@@ -132,10 +133,10 @@ export function RegressionTestView({
   outcomes,
   onBack,
   onOpenQuestion,
-  onCalibrate,
   onAutoCalibrate,
   onRetest,
   skipAnimation,
+  showSuggestionBanner = true,
   onComplete,
 }: RegressionTestViewProps) {
   const [progress, setProgress] = useState(0);
@@ -237,7 +238,6 @@ export function RegressionTestView({
   const total = rows.length;
   const vqPassedCount = rows.filter((r) => r.vqStatus === 'Passed').length;
   const vqFailedCount = rows.filter((r) => r.vqStatus === 'Failed').length;
-  const overfittedCount = rows.filter((r) => r.semanticFit === 'overfitted').length;
   const regressionCount = vqFailedCount;
   const passRate = total > 0 ? Math.round((vqPassedCount / total) * 100) : 0;
   const runtimeLabel = elapsedSeconds >= 60
@@ -323,34 +323,13 @@ export function RegressionTestView({
         </div>
       </div>
 
-      {isComplete && onAutoCalibrate && (
+      {isComplete && onAutoCalibrate && showSuggestionBanner && (
         <div className="ac-banner">
           <div className="ac-banner-left">
             <SparkleSingle size={14} />
-            <span>There are 2 new calibration suggestions based on this test suite’s results.</span>
+            <span>There are new calibration suggestions based on this test suite&apos;s results.</span>
           </div>
-          <button type="button" onClick={onAutoCalibrate}>Auto Calibrate</button>
-        </div>
-      )}
-
-      {isComplete && vqFailedCount > 0 && (
-        <div className="rt-scoped-notification">
-          <div className="rt-scoped-notification-left">
-            <Warning size={16} />
-            <span>{vqFailedCount} question{vqFailedCount > 1 ? 's' : ''} failed the VQ Path and marked as regression. Update the expected query to resolve.</span>
-          </div>
-          <button className="rt-scoped-notification-link" onClick={onCalibrate}>
-            Calibrate this test suite
-          </button>
-        </div>
-      )}
-
-      {isComplete && overfittedCount > 0 && (
-        <div className="rt-scoped-notification">
-          <div className="rt-scoped-notification-left">
-            <Warning size={16} />
-            <span>{overfittedCount} question{overfittedCount > 1 ? 's' : ''} Overfitted — VQ Path passes, but the model fails without VQ templates.</span>
-          </div>
+          <button type="button" onClick={onAutoCalibrate}>Review calibrations</button>
         </div>
       )}
 
