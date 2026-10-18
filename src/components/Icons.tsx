@@ -265,6 +265,13 @@ export const Asterisk = (props: IconProps) => (
   </svg>
 );
 
+export const ImpactArrow = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M3 12a9 9 0 1 0 9-9" />
+    <polyline points="3 4 3 12 11 12" />
+  </svg>
+);
+
 export const SparkleSingle = (props: IconProps) => (
   <svg {...base(props)} strokeWidth={0} stroke="none">
     <defs>

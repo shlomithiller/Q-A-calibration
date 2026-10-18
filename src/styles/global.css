@@ -7510,13 +7510,64 @@ a:hover {
 
 .vq-details {
   display: flex;
-  align-items: center;
-  gap: 48px;
+  flex-direction: column;
+  gap: 8px;
   padding: 8px 16px;
   background: #fff;
   border-radius: 16px;
   font-size: 14px;
   color: #2e2e2e;
+}
+
+.vq-details-row {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+}
+
+.vq-stale-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #e5e5e5;
+  border-radius: 8px;
+  color: #5c5c5c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vq-rescan-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #0176d3;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.vq-table-scanning {
+  position: relative;
+}
+
+.vq-table-scanning table {
+  opacity: 0.45;
+}
+
+.vq-table-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border: 5px solid #d4d4d4;
+  border-top-color: #8a8a8a;
+  border-radius: 50%;
+  animation: cal-spin 0.8s linear infinite;
+  opacity: 1;
 }
 
 .vq-details strong {
@@ -7723,11 +7774,119 @@ a:hover {
 
 .cal-model {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 8px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.cal-model-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 8px;
-  border-bottom: 1px solid #e5e5e5;
+}
+
+.cal-recalculating {
+  gap: 6px;
+}
+
+.cal-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #c9c9c9;
+  border-top-color: #5c5c5c;
+  border-radius: 50%;
+  animation: cal-spin 0.8s linear infinite;
+}
+
+@keyframes cal-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cal-scan-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cal-scan-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #0b5cab;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cal-scan-remaining {
+  color: #2e2e2e;
+  font-weight: 600;
+}
+
+.cal-scan-label strong {
+  font-weight: 700;
+}
+
+.cal-scan-track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cal-scan-track .rt-progress-bar {
+  flex: 1;
+  width: auto;
+}
+
+.cal-scan-stop {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 2px;
+  background: #0176d3;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cal-scan-progress p {
+  margin: 0;
+  color: #7526e3;
+  font-size: 13px;
+}
+
+.cal-model-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cal-model-actions .btn {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 600;
+  color: var(--color-brand);
+  border-color: #c9c9c9;
+}
+
+.cal-model-actions .btn:disabled {
+  color: #aeaeae;
+  border-color: #e5e5e5;
+  background: #fff;
+  cursor: not-allowed;
+}
+
+.cal-scan-btn {
+  color: var(--color-brand);
+  border-color: var(--color-brand);
+}
+
+.cal-scan-btn:hover {
+  background: var(--color-brand-95);
 }
 
 .cal-model h2 {
@@ -7784,16 +7943,26 @@ a:hover {
 .cal-impact {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
+  align-self: flex-start;
+  gap: 6px;
+  min-width: 106px;
   height: 22px;
   padding: 0 8px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.cal-impact svg {
+  flex-shrink: 0;
 }
 
 .cal-impact-high {
-  background: #fddde3;
-  color: #8e030f;
+  background: #cdefc4;
+  color: #22683e;
 }
 
 .cal-impact-medium {

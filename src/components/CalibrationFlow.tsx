@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Ban, ChevronDown, ChevronRight, Close, Info, Search, SparkleSingle, VerifiedCheck } from './Icons';
+import { ArrowLeft, Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Close, ImpactArrow, Info, Search, SparkleSingle, VerifiedCheck } from './Icons';
 
 type Impact = 'High' | 'Medium' | 'Low';
 type ScoreTone = 'warning' | 'success' | 'error';
@@ -70,24 +70,25 @@ const MODELS: CalibrationModel[] = [
 
 interface VqRow {
   question: string;
-  match: number;
+  result: 'Pass' | 'Fail';
   classification: 'Verified' | 'Regression';
 }
 
+const C360_FAIL = new Set([0, 3, 7, 8]);
 const VQS: VqRow[] = [
-  { question: 'What is the average NPS score of all customers that have critical tickets and open pipeline?', match: 40, classification: 'Verified' },
-  { question: 'Compare lead conversion rate in the prior month for different sources, when responding I do not want you to include sources marked as other', match: 80, classification: 'Verified' },
-  { question: 'What is our average days to close?', match: 80, classification: 'Verified' },
-  { question: 'Show me the total sales amount and opportunity type for closed won deals', match: 40, classification: 'Verified' },
-  { question: 'How does the average deal size of opportunities for new business compare to existing?', match: 80, classification: 'Verified' },
-  { question: 'Compare the average deal size for each lead source.', match: 50, classification: 'Verified' },
-  { question: "What's the total opportunity amount by opportunity stage for this quarter", match: 80, classification: 'Verified' },
-  { question: 'Total opportunity amount between aug 1 2024 and dec 1 2024 , by closed date and stage', match: 40, classification: 'Regression' },
-  { question: 'Whats the Average Deal Size this Quarter?', match: 10, classification: 'Regression' },
-  { question: 'List unconverted leads grouped by rating level and acquisition channel', match: 80, classification: 'Verified' },
-  { question: 'Compare lead conversion rate in the prior month for different sources, when responding I do not want you to include sources marked as other', match: 80, classification: 'Verified' },
-  { question: "What's the total opportunity amount by opportunity stage for this quarter", match: 80, classification: 'Verified' },
-  { question: 'Which lead sources are generating the highest number of converted leads this quarter?', match: 80, classification: 'Verified' },
+  { question: 'What is the average NPS score of all customers that have critical tickets and open pipeline?', result: 'Fail', classification: 'Verified' },
+  { question: 'Compare lead conversion rate in the prior month for different sources, when responding I do not want you to include sources marked as other', result: 'Pass', classification: 'Verified' },
+  { question: 'What is our average days to close?', result: 'Pass', classification: 'Verified' },
+  { question: 'Show me the total sales amount and opportunity type for closed won deals', result: 'Pass', classification: 'Verified' },
+  { question: 'How does the average deal size of opportunities for new business compare to existing?', result: 'Pass', classification: 'Verified' },
+  { question: 'Compare the average deal size for each lead source.', result: 'Pass', classification: 'Verified' },
+  { question: "What's the total opportunity amount by opportunity stage for this quarter", result: 'Pass', classification: 'Verified' },
+  { question: 'Total opportunity amount between aug 1 2024 and dec 1 2024 , by closed date and stage', result: 'Fail', classification: 'Regression' },
+  { question: 'Whats the Average Deal Size this Quarter?', result: 'Fail', classification: 'Regression' },
+  { question: 'List unconverted leads grouped by rating level and acquisition channel', result: 'Pass', classification: 'Verified' },
+  { question: 'Compare lead conversion rate in the prior month for different sources, when responding I do not want you to include sources marked as other', result: 'Pass', classification: 'Verified' },
+  { question: "What's the total opportunity amount by opportunity stage for this quarter", result: 'Pass', classification: 'Verified' },
+  { question: 'Which lead sources are generating the highest number of converted leads this quarter?', result: 'Pass', classification: 'Verified' },
 ];
 
 function toneFor(score: number): ScoreTone {
@@ -108,6 +109,7 @@ interface CalibrationFlowProps {
 }
 
 const CALIBRATE_MS = 4500;
+const SCAN_MS = 6000;
 
 export function CalibrationFlow({ onBack, onSaved }: CalibrationFlowProps) {
   const [reviewModelId, setReviewModelId] = useState<string | null>(null);
@@ -116,14 +118,47 @@ export function CalibrationFlow({ onBack, onSaved }: CalibrationFlowProps) {
   );
   const [progress, setProgress] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [scanningId, setScanningId] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scannedIds, setScannedIds] = useState<string[]>([]);
   const frame = useRef(0);
+  const scanFrame = useRef(0);
   const models = MODELS.map((model) => {
     const score = scores[model.id] ?? model.score;
     return { ...model, score, tone: toneFor(score) };
   });
   const reviewModel = models.find((model) => model.id === reviewModelId);
 
-  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  useEffect(() => () => {
+    cancelAnimationFrame(frame.current);
+    cancelAnimationFrame(scanFrame.current);
+  }, []);
+
+  const startScan = (id: string) => {
+    if (scanningId || scannedIds.includes(id)) return;
+    setScanningId(id);
+    setScanProgress(0);
+    const begin = Date.now();
+    const step = () => {
+      const elapsedMs = Date.now() - begin;
+      const t = Math.min(1, elapsedMs / SCAN_MS);
+      setScanProgress(t);
+      if (t < 1) {
+        scanFrame.current = requestAnimationFrame(step);
+      } else {
+        setScanningId(null);
+        setScannedIds((current) => current.includes(id) ? current : [...current, id]);
+      }
+    };
+    cancelAnimationFrame(scanFrame.current);
+    scanFrame.current = requestAnimationFrame(step);
+  };
+
+  const stopScan = () => {
+    cancelAnimationFrame(scanFrame.current);
+    setScanningId(null);
+    setScanProgress(0);
+  };
 
   const calibrateAll = () => {
     if (progress != null) return;
@@ -180,49 +215,123 @@ export function CalibrationFlow({ onBack, onSaved }: CalibrationFlowProps) {
       )}
 
       <section className="cal-card">
-        {models.map((model) => (
-          <article key={model.id} className="cal-model">
-            <div>
-              <h2>Model Name : {model.name}</h2>
-              <div className="cal-meta">
-                <span><span className="ac-meta-label">Created:</span> 2 hours ago</span>
-                <span className="cal-score">
-                  SDM match VQ
-                  <span className={`ac-badge ac-badge-${model.tone === 'error' ? 'warning' : model.tone} ${model.tone === 'error' ? 'cal-score-low' : ''}`}>{model.score}%</span>
-                </span>
+        {models.map((model) => {
+          const scanning = scanningId === model.id;
+          const scanned = scannedIds.includes(model.id);
+          const reviewDisabled = calibrating || (model.id === 'sales' && !scanned);
+          return (
+            <article key={model.id} className={`cal-model ${scanning ? 'cal-model-scanning' : ''}`}>
+              <div className="cal-model-row">
+                <div>
+                  <h2>Model Name : {model.name}</h2>
+                  <div className="cal-meta">
+                    <span><span className="ac-meta-label">Created:</span> 2 hours ago</span>
+                    <span className="cal-score">
+                      SDM match VQ
+                      {scanning ? (
+                        <span className="ac-badge ac-badge-neutral cal-recalculating"><span className="cal-spinner" /> Recalculating</span>
+                      ) : model.id === 'sales' && !scanned ? (
+                        <span className="ac-badge ac-badge-neutral">Scan Required</span>
+                      ) : (
+                        <span className={`ac-badge ac-badge-${model.tone === 'error' ? 'warning' : model.tone} ${model.tone === 'error' ? 'cal-score-low' : ''}`}>{model.score}%</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <div className="cal-model-actions">
+                  <button type="button" className="btn btn-outlined" onClick={() => setReviewModelId(model.id)} disabled={reviewDisabled}>Review</button>
+                  <button type="button" className="btn btn-outlined cal-scan-btn" onClick={() => startScan(model.id)} disabled={scanning || scanned || calibrating}>Scan for Calibrations</button>
+                </div>
               </div>
-            </div>
-            <button type="button" className="btn btn-outlined" onClick={() => setReviewModelId(model.id)} disabled={calibrating}>Review</button>
-          </article>
-        ))}
-        <div className="cal-footer">
-          <button
-            type="button"
-            className="btn btn-brand"
-            onClick={calibrateAll}
-            disabled={progress != null}
-          >
-            Calibrate All
-          </button>
-        </div>
+              {scanning && (
+                <div className="cal-scan-progress">
+                  <div className="cal-scan-label"><strong>Processing:</strong> {Math.round(scanProgress * 100)}%</div>
+                  <div className="cal-scan-track">
+                    <div className="rt-progress-bar">
+                      <div className="rt-progress-fill" style={{ width: `${Math.round(scanProgress * 100)}%` }} />
+                    </div>
+                    <button type="button" className="cal-scan-stop" aria-label="Stop scan" onClick={stopScan} />
+                  </div>
+                  <p>Retrieving all semantic model's verified queries</p>
+                </div>
+              )}
+            </article>
+          );
+        })}
       </section>
     </div>
   );
 }
 
 const IMPACTED_ROWS = {
-  calculated: [7, 8],
-  preference: [0, 3],
+  calculated: [0, 7, 8],
+  preference: [1, 2, 3, 4, 5, 6, 9, 10, 11, 12],
 } as const;
 
 function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: CalibrationModel; onBack: () => void; onSaved: (message: string) => void; onCalibrateAll: () => void }) {
+  const isC360 = model.id === 'c360';
   const [impacted, setImpacted] = useState<'calculated' | 'preference' | null>(null);
-  const [panel, setPanel] = useState<'hidden' | 'loading' | 'ready'>('hidden');
+  const [phase, setPhase] = useState<'stale' | 'scanning' | 'ready' | 'syncing' | 'synced'>(isC360 ? 'stale' : 'ready');
+  const [scanProgress, setScanProgress] = useState(0);
+  const scanFrame = useRef(0);
   const highlighted = impacted ? IMPACTED_ROWS[impacted] : [];
+  const busy = phase === 'scanning' || phase === 'syncing';
+  const rows = (isC360 ? VQS.map((row, index) => (C360_FAIL.has(index) ? { ...row, result: 'Fail' as const } : row)) : VQS)
+    .map((row) => (phase === 'synced' ? { ...row, result: 'Pass' as const } : row));
+  const offers = phase === 'stale'
+    ? (['preference'] as const)
+    : isC360
+      ? (['preference', 'calculated'] as const)
+      : (['calculated', 'preference'] as const);
 
-  const suggest = () => {
-    setPanel('loading');
-    window.setTimeout(() => setPanel('ready'), 1200);
+  useEffect(() => () => cancelAnimationFrame(scanFrame.current), []);
+
+  const startRescan = () => {
+    setImpacted(null);
+    setPhase('scanning');
+    setScanProgress(0);
+    const begin = Date.now();
+    const step = () => {
+      const t = Math.min(1, (Date.now() - begin) / SCAN_MS);
+      setScanProgress(t);
+      if (t < 1) {
+        scanFrame.current = requestAnimationFrame(step);
+      } else {
+        setPhase('ready');
+      }
+    };
+    cancelAnimationFrame(scanFrame.current);
+    scanFrame.current = requestAnimationFrame(step);
+  };
+
+  const stopRescan = () => {
+    cancelAnimationFrame(scanFrame.current);
+    setScanProgress(0);
+    setPhase('stale');
+  };
+
+  const startSync = () => {
+    setImpacted(null);
+    setPhase('syncing');
+    setScanProgress(0);
+    const begin = Date.now();
+    const step = () => {
+      const t = Math.min(1, (Date.now() - begin) / SCAN_MS);
+      setScanProgress(t);
+      if (t < 1) {
+        scanFrame.current = requestAnimationFrame(step);
+      } else {
+        setPhase('synced');
+      }
+    };
+    cancelAnimationFrame(scanFrame.current);
+    scanFrame.current = requestAnimationFrame(step);
+  };
+
+  const stopSync = () => {
+    cancelAnimationFrame(scanFrame.current);
+    setScanProgress(0);
+    setPhase('ready');
   };
 
   return (
@@ -234,32 +343,69 @@ function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: Calibr
           </button>
           <h1>Model Name - {model.name}</h1>
         </div>
-        <button type="button" className="btn btn-brand" onClick={suggest} disabled={panel === 'loading'}>
-          {panel === 'loading' ? 'Suggesting...' : 'Suggest Calibrations'}
-        </button>
       </div>
 
-      <div className="vq-details">
-        <span><strong>Model match VQ:</strong> <span className={`ac-badge ${matchClass(model.score)}`}>{model.score}%</span></span>
-        <span><strong>Run Time:</strong> 20 seconds</span>
-        <span><strong>Last Modified</strong> A week ago</span>
+      {phase !== 'synced' && (
+      <div className={`vq-details ${busy ? 'vq-details-scanning' : ''}`}>
+        <div className="vq-details-row">
+          <span>
+            <strong>Model match VQ:</strong>{' '}
+            {phase === 'stale' ? null : busy ? (
+              <span className="ac-badge ac-badge-neutral cal-recalculating"><span className="cal-spinner" /> Recalculating</span>
+            ) : (
+              <span className={`ac-badge ${matchClass(model.score)}`}>{model.score}%</span>
+            )}
+          </span>
+          <span><strong>Run Time:</strong> 20 seconds</span>
+          <span><strong>Last Modified</strong> A week ago</span>
+        </div>
+        {busy && (
+          <div className="cal-scan-progress">
+            <div className="cal-scan-label">
+              <strong>Processing:</strong> {Math.round(scanProgress * 100)}%
+              <span className="cal-scan-remaining">Estimated Remaining Time: {Math.max(0, Math.ceil((1 - scanProgress) * 30))}sec</span>
+            </div>
+            <div className="cal-scan-track">
+              <div className="rt-progress-bar">
+                <div className="rt-progress-fill" style={{ width: `${Math.round(scanProgress * 100)}%` }} />
+              </div>
+              <button type="button" className="cal-scan-stop" aria-label="Stop scan" onClick={phase === 'syncing' ? stopSync : stopRescan} />
+            </div>
+            <p>Retrieving all semantic model's verified queries</p>
+          </div>
+        )}
       </div>
+      )}
 
-      <div className={`vq-split ${panel !== 'hidden' ? 'vq-split-open' : ''}`}>
-      <div className="ts-table-card">
+      {phase === 'stale' && (
+        <div className="vq-stale-notice" role="status">
+          <Search size={14} />
+          <span>The model has changed or Verified Queries have been added since the last calibration scan.</span>
+          <button type="button" className="vq-rescan-link" onClick={startRescan}>Re-scan</button>
+        </div>
+      )}
+
+      <div className={`vq-split ${!busy && phase !== 'synced' ? 'vq-split-open' : ''}`}>
+      <div className={`ts-table-card ${busy ? 'vq-table-scanning' : ''}`}>
         <table className="ts-table vq-table">
           <thead>
             <tr>
               <th>Representative Questions</th>
-              <th>Model Match VQ</th>
+              <th>Test Result</th>
               <th>Classification</th>
             </tr>
           </thead>
           <tbody>
-            {VQS.map((row, index) => (
+            {rows.map((row, index) => (
               <tr key={`${row.question}-${index}`} className={highlighted.includes(index) ? 'vq-row-impacted' : undefined}>
                 <td className="vq-question">{row.question}</td>
-                <td><span className={`ac-badge ${matchClass(row.match)}`}>{row.match}%</span></td>
+                <td>
+                  {row.result === 'Fail' ? (
+                    <span className="rt-badge rt-badge-failed"><CircleX size={14} /> Fail</span>
+                  ) : (
+                    <span className="rt-badge rt-badge-passed"><CircleCheck size={14} /> Pass</span>
+                  )}
+                </td>
                 <td>
                   {row.classification === 'Regression' ? (
                     <span className="rt-badge rt-badge-class-regression"><Ban size={12} /> Regression</span>
@@ -271,157 +417,164 @@ function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: Calibr
             ))}
           </tbody>
         </table>
+        {busy && <div className="vq-table-spinner" aria-hidden />}
       </div>
-      {panel !== 'hidden' && (
-        <SuggestionPanel
-          loading={panel === 'loading'}
-          onClose={() => setPanel('hidden')}
-          onCalibrate={(label) => onSaved(`${label} applied on ${model.name}`)}
-          onCalibrateAll={onCalibrateAll}
-          impacted={impacted}
-          onImpacted={setImpacted}
-        />
-      )}
+        {!busy && phase !== 'synced' && (
+          <SuggestionPanel
+            offers={[...offers]}
+            onClose={onBack}
+            onCalibrate={(label) => onSaved(`${label} applied on ${model.name}`)}
+            onSync={startSync}
+            onCalibrateAll={onCalibrateAll}
+            impacted={impacted}
+            onImpacted={setImpacted}
+          />
+        )}
       </div>
     </div>
   );
 }
 
 function SuggestionPanel({
-  loading,
+  offers,
   onClose,
   onCalibrate,
+  onSync,
   onCalibrateAll,
   impacted,
   onImpacted,
 }: {
-  loading: boolean;
+  offers: Array<'calculated' | 'preference'>;
   onClose: () => void;
   onCalibrate: (label: string) => void;
+  onSync: () => void;
   onCalibrateAll: () => void;
   impacted: 'calculated' | 'preference' | null;
   onImpacted: (value: 'calculated' | 'preference' | null) => void;
 }) {
   const [typeFilter, setTypeFilter] = useState('all');
+  const [impactFilter, setImpactFilter] = useState('all');
   const [step, setStep] = useState<'calculated' | 'preference' | null>(null);
-  const showCalculated = typeFilter === 'all' || typeFilter === 'calculated';
-  const showPreference = typeFilter === 'all' || typeFilter === 'preference';
+  const showCalculated = offers.includes('calculated') && (typeFilter === 'all' || typeFilter === 'calculated') && (impactFilter === 'all' || impactFilter === 'high');
+  const showPreference = offers.includes('preference') && (typeFilter === 'all' || typeFilter === 'preference') && (impactFilter === 'all' || impactFilter === 'medium');
+
+  const calculatedCard = showCalculated ? (
+    <div className="calibration-card" key="calculated">
+      <span className="cal-impact cal-impact-high">Impact: High <ImpactArrow size={12} /></span>
+      <div className="calibration-card-header">
+        <span className="calibration-card-icon description" />
+        <span className="calibration-card-title">Add Calculated Field</span>
+      </div>
+      <p className="calibration-card-body">
+        Designed to help the agent answer accurately questions like: “What is the relationship CSAT per region?”
+      </p>
+      <div className="calibration-card-actions">
+        <button type="button" className="btn btn-brand btn-with-icon" onClick={() => setStep('calculated')}>
+          <SparkleSingle size={14} /> Calibrate
+        </button>
+        <label className="vq-impacted">
+          <input
+            type="checkbox"
+            checked={impacted === 'calculated'}
+            onChange={() => onImpacted(impacted === 'calculated' ? null : 'calculated')}
+          />
+          Impacted Questions (3)
+        </label>
+      </div>
+    </div>
+  ) : null;
+
+  const preferenceCard = showPreference ? (
+    <div className="calibration-card" key="preference">
+      <span className="cal-impact cal-impact-medium">Impact: Medium <ImpactArrow size={12} /></span>
+      <div className="calibration-card-header">
+        <span className="calibration-card-icon description" />
+        <span className="calibration-card-title">Add Business Preference</span>
+      </div>
+      <p className="calibration-card-body">
+        Designed to help the agent answer accurately questions like: “Show average deal size for each region”
+      </p>
+      <div className="calibration-card-actions">
+        <button type="button" className="btn btn-brand btn-with-icon" onClick={() => onCalibrate('Add Business Preference')}>
+          <SparkleSingle size={14} /> Calibrate
+        </button>
+        <label className="vq-impacted">
+          <input
+            type="checkbox"
+            checked={impacted === 'preference'}
+            onChange={() => onImpacted(impacted === 'preference' ? null : 'preference')}
+          />
+          Impacted Questions (10)
+        </label>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <aside className="calibration-side-panel vq-suggest-panel">
       <div className="calibration-side-panel-header">
-        <span className="calibration-side-panel-title">Calibration Suggestions</span>
+        <span className="calibration-side-panel-title">Calibrate</span>
         <button type="button" className="calibration-side-panel-close" onClick={onClose} aria-label="Close">
           <Close size={14} />
         </button>
       </div>
       <div className="calibration-side-panel-content">
-        {loading ? (
-          <div className="calibration-analyzing">
-            <div className="calibration-analyzing-sparkles">
-              <span className="sparkle-dot sparkle-dot-1"><SparkleSingle size={10} /></span>
-              <span className="sparkle-dot sparkle-dot-2"><SparkleSingle size={14} /></span>
-              <span className="sparkle-dot sparkle-dot-3"><SparkleSingle size={8} /></span>
-            </div>
-            <p className="calibration-analyzing-text">Generating calibration suggestions...</p>
-          </div>
-        ) : (
-          <>
-            <div className="vq-filters">
-              <label className="ac-select">
-                <span className="sr-only">Calibration type</span>
-                <select
-                  aria-label="Calibration type"
-                  value={typeFilter}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    setTypeFilter(next);
-                    if (next === 'calculated' && impacted === 'preference') onImpacted(null);
-                    if (next === 'preference' && impacted === 'calculated') onImpacted(null);
-                    if (next === 'description') onImpacted(null);
-                  }}
-                >
-                  <option value="all">All Calibrations Types</option>
-                  <option value="calculated">Calculated Field</option>
-                  <option value="preference">Business Preference</option>
-                  <option value="description">Description</option>
-                </select>
-                <ChevronDown size={12} />
-              </label>
-              <label className="ac-select">
-                <span className="sr-only">Impact</span>
-                <select aria-label="Impact" defaultValue="all">
-                  <option value="all">Impact</option>
-                  <option>High</option>
-                  <option>Medium</option>
-                  <option>Low</option>
-                </select>
-                <ChevronDown size={12} />
-              </label>
-            </div>
-            <div className="analysis-summary">
-              <div className="analysis-summary-header">
-                <SparkleSingle size={16} className="analysis-summary-icon" />
-                <span className="analysis-summary-title">Analysis Summary</span>
-              </div>
-              <p className="analysis-summary-body">
-                Based on your feedback, the agent confirmed a mismatch between your intent and the semantic routing: the system mapped the query to a standard platform metric (<strong>Opportunity.Amount</strong>), overlooking your specific custom data definitions. To resolve this, we recommend applying the following calibration:
-              </p>
-            </div>
-            {showCalculated && <div className="calibration-card">
-              <span className="calibration-card-badge"><SparkleSingle size={10} /> Suggested Calibration</span>
-              <div className="calibration-card-header">
-                <span className="calibration-card-icon description" />
-                <span className="calibration-card-title">Add Calculated Field</span>
-              </div>
-              <p className="calibration-card-body">
-                Adding a business preference will explicitly instruct the model to bypass standard mapping and default to <strong>Opportunity.Expected</strong> for future queries involving revenue, ensuring the agent strictly follows your local business logic.
-              </p>
-              <div className="calibration-card-actions">
-                <button type="button" className="btn btn-brand btn-with-icon" onClick={() => setStep('calculated')}>
-                  <SparkleSingle size={14} /> Calibrate
-                </button>
-                <label className="vq-impacted">
-                  <input
-                    type="checkbox"
-                    checked={impacted === 'calculated'}
-                    onChange={() => onImpacted(impacted === 'calculated' ? null : 'calculated')}
-                  />
-                  Impacted Questions
-                </label>
-              </div>
-            </div>}
-            {showPreference && <div className="calibration-card">
-              <span className="calibration-card-badge"><SparkleSingle size={10} /> Suggested Calibration</span>
-              <div className="calibration-card-header">
-                <span className="calibration-card-icon description" />
-                <span className="calibration-card-title">Add Business Preference</span>
-              </div>
-              <p className="calibration-card-body">
-                Adding a business preference will explicitly instruct the model to bypass standard mapping and default to
-              </p>
-              <div className="calibration-card-actions">
-                <button type="button" className="btn btn-brand btn-with-icon" onClick={() => onCalibrate('Add Business Preference')}>
-                  <SparkleSingle size={14} /> Calibrate
-                </button>
-                <label className="vq-impacted">
-                  <input
-                    type="checkbox"
-                    checked={impacted === 'preference'}
-                    onChange={() => onImpacted(impacted === 'preference' ? null : 'preference')}
-                  />
-                  Impacted Questions
-                </label>
-              </div>
-            </div>}
-          </>
-        )}
-      </div>
-      {!loading && (
-        <div className="vq-panel-footer">
-          <button type="button" className="btn btn-outlined" onClick={onCalibrateAll}>Calibrate All</button>
+        <div className="vq-filters">
+          <label className="ac-select">
+            <span className="sr-only">Calibration type</span>
+            <select
+              aria-label="Calibration type"
+              value={typeFilter}
+              onChange={(event) => {
+                const next = event.target.value;
+                setTypeFilter(next);
+                if (next === 'calculated' && impacted === 'preference') onImpacted(null);
+                if (next === 'preference' && impacted === 'calculated') onImpacted(null);
+                if (next === 'description') onImpacted(null);
+              }}
+            >
+              <option value="all">All Calibrations Types</option>
+              <option value="calculated">Calculated Field</option>
+              <option value="preference">Business Preference</option>
+              <option value="description">Description</option>
+            </select>
+            <ChevronDown size={12} />
+          </label>
+          <label className="ac-select">
+            <span className="sr-only">Impact</span>
+            <select
+              aria-label="Impact"
+              value={impactFilter}
+              onChange={(event) => {
+                const next = event.target.value;
+                setImpactFilter(next);
+                if (next === 'high' && impacted === 'preference') onImpacted(null);
+                if (next === 'medium' && impacted === 'calculated') onImpacted(null);
+                if (next === 'low') onImpacted(null);
+              }}
+            >
+              <option value="all">Impact: All</option>
+              <option value="high">Impact: High</option>
+              <option value="medium">Impact: Medium</option>
+              <option value="low">Impact: Low</option>
+            </select>
+            <ChevronDown size={12} />
+          </label>
         </div>
-      )}
+        <div className="analysis-summary">
+          <div className="analysis-summary-header">
+            <SparkleSingle size={16} className="analysis-summary-icon" />
+            <span className="analysis-summary-title">Analysis Summary</span>
+          </div>
+          <p className="analysis-summary-body">
+            Based on your feedback, the agent confirmed a mismatch between your intent and the semantic routing: the system mapped the query to a standard platform metric (<strong>Opportunity.Amount</strong>), overlooking your specific custom data definitions. To resolve this, we recommend applying the following calibration:
+          </p>
+        </div>
+        {offers.map((kind) => (kind === 'calculated' ? calculatedCard : preferenceCard))}
+      </div>
+      <div className="vq-panel-footer">
+        <button type="button" className="btn btn-outlined" onClick={onCalibrateAll}>Calibrate All</button>
+      </div>
       {step === 'calculated' && (
         <CalculatedFieldModal
           onClose={() => setStep(null)}
@@ -440,7 +593,7 @@ function SuggestionPanel({
           onClose={() => setStep(null)}
           onAdd={() => {
             setStep(null);
-            onCalibrate('Add Business Preference');
+            onSync();
           }}
         />
       )}
@@ -601,10 +754,11 @@ function PreferenceModal({ onClose, onAdd }: { onClose: () => void; onAdd: () =>
           </div>
         </div>
         <footer className="ac-modal-footer">
-          <span />
+          <button type="button" className="btn btn-outlined" onClick={onClose}>Back</button>
           <div className="ac-modal-footer-right">
             <button type="button" className="btn btn-outlined" onClick={onClose}>Cancel</button>
-            <button type="button" className="btn btn-brand" onClick={onAdd}>Add Preference</button>
+            <button type="button" className="btn btn-outlined" onClick={onClose}>Skip</button>
+            <button type="button" className="btn btn-brand" onClick={onAdd}>Save &amp; Synch</button>
           </div>
         </footer>
       </div>
