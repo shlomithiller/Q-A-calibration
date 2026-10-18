@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Ban, ChevronDown, Close, SparkleSingle, VerifiedCheck } from './Icons';
+import { ArrowLeft, Ban, ChevronDown, ChevronRight, Close, Info, Search, SparkleSingle, VerifiedCheck } from './Icons';
 
 type Impact = 'High' | 'Medium' | 'Low';
 type ScoreTone = 'warning' | 'success' | 'error';
@@ -216,7 +216,6 @@ const IMPACTED_ROWS = {
 } as const;
 
 function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: CalibrationModel; onBack: () => void; onSaved: (message: string) => void; onCalibrateAll: () => void }) {
-  const [selected, setSelected] = useState<number | null>(null);
   const [impacted, setImpacted] = useState<'calculated' | 'preference' | null>(null);
   const [panel, setPanel] = useState<'hidden' | 'loading' | 'ready'>('hidden');
   const highlighted = impacted ? IMPACTED_ROWS[impacted] : [];
@@ -251,7 +250,6 @@ function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: Calibr
         <table className="ts-table vq-table">
           <thead>
             <tr>
-              <th className="ts-check" />
               <th>Representative Questions</th>
               <th>Model Match VQ</th>
               <th>Classification</th>
@@ -260,14 +258,6 @@ function ModelVqPage({ model, onBack, onSaved, onCalibrateAll }: { model: Calibr
           <tbody>
             {VQS.map((row, index) => (
               <tr key={`${row.question}-${index}`} className={highlighted.includes(index) ? 'vq-row-impacted' : undefined}>
-                <td className="ts-check">
-                  <input
-                    type="checkbox"
-                    aria-label={row.question}
-                    checked={selected === index}
-                    onChange={() => setSelected((current) => current === index ? null : index)}
-                  />
-                </td>
                 <td className="vq-question">{row.question}</td>
                 <td><span className={`ac-badge ${matchClass(row.match)}`}>{row.match}%</span></td>
                 <td>
@@ -312,6 +302,11 @@ function SuggestionPanel({
   impacted: 'calculated' | 'preference' | null;
   onImpacted: (value: 'calculated' | 'preference' | null) => void;
 }) {
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [step, setStep] = useState<'calculated' | 'preference' | null>(null);
+  const showCalculated = typeFilter === 'all' || typeFilter === 'calculated';
+  const showPreference = typeFilter === 'all' || typeFilter === 'preference';
+
   return (
     <aside className="calibration-side-panel vq-suggest-panel">
       <div className="calibration-side-panel-header">
@@ -335,10 +330,21 @@ function SuggestionPanel({
             <div className="vq-filters">
               <label className="ac-select">
                 <span className="sr-only">Calibration type</span>
-                <select aria-label="Calibration type" defaultValue="all">
+                <select
+                  aria-label="Calibration type"
+                  value={typeFilter}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setTypeFilter(next);
+                    if (next === 'calculated' && impacted === 'preference') onImpacted(null);
+                    if (next === 'preference' && impacted === 'calculated') onImpacted(null);
+                    if (next === 'description') onImpacted(null);
+                  }}
+                >
                   <option value="all">All Calibrations Types</option>
-                  <option>Calculated Field</option>
-                  <option>Business Preference</option>
+                  <option value="calculated">Calculated Field</option>
+                  <option value="preference">Business Preference</option>
+                  <option value="description">Description</option>
                 </select>
                 <ChevronDown size={12} />
               </label>
@@ -362,7 +368,7 @@ function SuggestionPanel({
                 Based on your feedback, the agent confirmed a mismatch between your intent and the semantic routing: the system mapped the query to a standard platform metric (<strong>Opportunity.Amount</strong>), overlooking your specific custom data definitions. To resolve this, we recommend applying the following calibration:
               </p>
             </div>
-            <div className="calibration-card">
+            {showCalculated && <div className="calibration-card">
               <span className="calibration-card-badge"><SparkleSingle size={10} /> Suggested Calibration</span>
               <div className="calibration-card-header">
                 <span className="calibration-card-icon description" />
@@ -372,7 +378,7 @@ function SuggestionPanel({
                 Adding a business preference will explicitly instruct the model to bypass standard mapping and default to <strong>Opportunity.Expected</strong> for future queries involving revenue, ensuring the agent strictly follows your local business logic.
               </p>
               <div className="calibration-card-actions">
-                <button type="button" className="btn btn-brand btn-with-icon" onClick={() => onCalibrate('Add Calculated Field')}>
+                <button type="button" className="btn btn-brand btn-with-icon" onClick={() => setStep('calculated')}>
                   <SparkleSingle size={14} /> Calibrate
                 </button>
                 <label className="vq-impacted">
@@ -384,8 +390,8 @@ function SuggestionPanel({
                   Impacted Questions
                 </label>
               </div>
-            </div>
-            <div className="calibration-card">
+            </div>}
+            {showPreference && <div className="calibration-card">
               <span className="calibration-card-badge"><SparkleSingle size={10} /> Suggested Calibration</span>
               <div className="calibration-card-header">
                 <span className="calibration-card-icon description" />
@@ -407,7 +413,7 @@ function SuggestionPanel({
                   Impacted Questions
                 </label>
               </div>
-            </div>
+            </div>}
           </>
         )}
       </div>
@@ -416,6 +422,192 @@ function SuggestionPanel({
           <button type="button" className="btn btn-outlined" onClick={onCalibrateAll}>Calibrate All</button>
         </div>
       )}
+      {step === 'calculated' && (
+        <CalculatedFieldModal
+          onClose={() => setStep(null)}
+          onSave={() => {
+            setStep(null);
+            onCalibrate('Add Calculated Field');
+          }}
+          onSaveNext={() => {
+            onCalibrate('Add Calculated Field');
+            setStep('preference');
+          }}
+        />
+      )}
+      {step === 'preference' && (
+        <PreferenceModal
+          onClose={() => setStep(null)}
+          onAdd={() => {
+            setStep(null);
+            onCalibrate('Add Business Preference');
+          }}
+        />
+      )}
     </aside>
+  );
+}
+
+const CALC_FORMULA = 'ROUND(COUNT(IF[sample - Superstore].[Discount]>= 4 THEN 1 END)*100.0 /\nCOUNT ([sample - Superstore_Orders]), 2)';
+
+function CalculatedFieldModal({ onClose, onSave, onSaveNext }: { onClose: () => void; onSave: () => void; onSaveNext: () => void }) {
+  const [tab, setTab] = useState<'fields' | 'functions'>('fields');
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="ac-modal" role="dialog" aria-labelledby="calc-field-title" onClick={(event) => event.stopPropagation()}>
+        <button className="ac-modal-close" aria-label="Close" onClick={onClose}>
+          <Close size={14} />
+        </button>
+        <h2 id="calc-field-title">Calibrations Suggestions - Calculated Field</h2>
+        <div className="ac-modal-banner">
+          <SparkleSingle size={16} />
+          <p><strong>Impact: High</strong> - Designed to help the agent answer accurately questions like: “What is the relationship CSAT per region?”</p>
+        </div>
+        <div className="ac-calc">
+          <aside className="ac-calc-nav">
+            <div className="ac-calc-tabs">
+              <button type="button" className={tab === 'fields' ? 'active' : ''} onClick={() => setTab('fields')}>Fields</button>
+              <button type="button" className={tab === 'functions' ? 'active' : ''} onClick={() => setTab('functions')}>Functions</button>
+            </div>
+            <label className="ac-search ac-search-block">
+              <Search size={14} />
+              <input placeholder="Search..." aria-label="Search fields" />
+            </label>
+            <ul className="ac-tree">
+              {(tab === 'fields'
+                ? ['Data Objects (4)', 'Account (8)', 'Account Name (12)', 'Campaign (3)', 'Campaign Name (1)']
+                : ['ROUND', 'COUNT', 'IF', 'SUM', 'AVG']
+              ).map((label, index) => (
+                <li key={label}>
+                  <ChevronRight size={12} />
+                  <span className={index === 0 ? 'ac-tree-root' : ''}>{label}</span>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="btn btn-neutral-blue ac-insert">
+              Insert <ChevronRight size={12} />
+            </button>
+          </aside>
+          <div className="ac-calc-form">
+            <button type="button" className="ac-collapse" onClick={() => setDraftOpen((open) => !open)}>
+              <ChevronRight size={12} className={draftOpen ? 'ac-chevron-open' : ''} />
+              Draft with Einstein
+              <SparkleSingle size={12} />
+            </button>
+            {draftOpen && <p className="ac-draft-hint">Einstein drafted Relationship CSAT Percentage from failed CSAT questions in this model.</p>}
+            <div className="ac-field-row">
+              <label>
+                Field Type <span aria-hidden>*</span>
+                <select defaultValue="Measure" aria-label="Field type">
+                  <option>Measure</option>
+                  <option>Dimension</option>
+                </select>
+              </label>
+              <label>
+                Data Type <span aria-hidden>*</span>
+                <select defaultValue="Number" aria-label="Data type">
+                  <option>Number</option>
+                  <option>Text</option>
+                  <option>Date</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span className="ac-required">Name</span>
+              <input defaultValue="Relationship CSAT Percentage" aria-label="Field name" />
+            </label>
+            <label>
+              Description <span aria-hidden>*</span>
+              <input defaultValue="Calculates the percentage of survey responses with a rating of 4 or higher, rounded to two decimal places." aria-label="Description" />
+            </label>
+            <button type="button" className="ac-collapse" onClick={() => setAdvancedOpen((open) => !open)}>
+              <ChevronRight size={12} className={advancedOpen ? 'ac-chevron-open' : ''} />
+              Advanced
+            </button>
+            {advancedOpen && <p className="ac-draft-hint">Aggregation: Average. Display format: Percent, 2 decimal places.</p>}
+            <button type="button" className="ac-collapse ac-collapse-open" onClick={() => setFiltersOpen((open) => !open)}>
+              <ChevronDown size={12} className={filtersOpen ? '' : 'ac-chevron-closed'} />
+              Filters <span className="ac-count">3</span>
+            </button>
+            <div className="ac-formula">
+              <div className="ac-formula-label">Formula <Info size={12} /></div>
+              <div className="ac-formula-tools" aria-hidden>
+                {['+', '−', '*', '/', '^', '(', ')'].map((symbol) => (
+                  <span key={symbol}>{symbol}</span>
+                ))}
+                <SparkleSingle size={12} />
+              </div>
+              <pre>{CALC_FORMULA}</pre>
+            </div>
+          </div>
+        </div>
+        <footer className="ac-modal-footer">
+          <button type="button" className="btn btn-outlined" onClick={onClose}>Back</button>
+          <div className="ac-modal-footer-right">
+            <button type="button" className="btn btn-outlined" onClick={onClose}>Skip</button>
+            <button type="button" className="btn btn-outlined" onClick={onSave}>Save</button>
+            <button type="button" className="btn btn-brand" onClick={onSaveNext}>Save &amp; Next (1)</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function PreferenceModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
+  const [label, setLabel] = useState('Products');
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="ac-modal pref-modal" role="dialog" aria-labelledby="pref-title" onClick={(event) => event.stopPropagation()}>
+        <button className="ac-modal-close" aria-label="Close" onClick={onClose}>
+          <Close size={14} />
+        </button>
+        <h2 id="pref-title">Add Preference</h2>
+        <div className="ac-modal-banner">
+          <SparkleSingle size={16} />
+          <p><strong>Impact: High</strong> - Designed to help the agent categorize which model to choose</p>
+        </div>
+        <div className="pref-body">
+          <label>
+            Describe your preference
+            <textarea defaultValue="The total discount cannot exceed 30% of the product's list price" rows={3} />
+          </label>
+          <label>
+            Assign a label
+            <span className="pref-search">
+              <input placeholder="Search or create a new one..." aria-label="Assign a label" />
+              <Search size={14} />
+            </span>
+          </label>
+          {label && (
+            <button type="button" className="pref-pill" onClick={() => setLabel('')}>
+              {label} <Close size={12} />
+            </button>
+          )}
+          <p className="pref-hint"><Info size={12} /> Press Enter to create a new one.</p>
+          <div className="pref-examples">
+            <strong>Examples of compliant preferences :</strong>
+            <ul>
+              <li>Products are ‘in stock’ when the quantity_on_hand field is positive</li>
+              <li>When asking about sales performance, group by region</li>
+              <li>Limit results to 100 rows</li>
+            </ul>
+            <p>Learn about <a href="#" onClick={(event) => event.preventDefault()}>Best Practices</a></p>
+          </div>
+        </div>
+        <footer className="ac-modal-footer">
+          <span />
+          <div className="ac-modal-footer-right">
+            <button type="button" className="btn btn-outlined" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-brand" onClick={onAdd}>Add Preference</button>
+          </div>
+        </footer>
+      </div>
+    </div>
   );
 }
