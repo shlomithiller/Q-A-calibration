@@ -227,7 +227,7 @@ export function CalibrationFlow({ onBack, onSaved }: CalibrationFlowProps) {
                   <div className="cal-meta">
                     <span><span className="ac-meta-label">Created:</span> 2 hours ago</span>
                     <span className="cal-score">
-                      SDM match VQ
+                      Semantic Coverage
                       {scanning ? (
                         <span className="ac-badge ac-badge-neutral cal-recalculating"><span className="cal-spinner" /> Recalculating</span>
                       ) : model.id === 'sales' && !scanned ? (
@@ -278,7 +278,6 @@ function ModelVqPage({ model, onBack, onSaved }: { model: CalibrationModel; onBa
   const busy = phase === 'scanning' || phase === 'syncing';
   const showPanel = phase !== 'scanning';
   const syncedScore = 80;
-  const elapsedSec = Math.floor(scanProgress * 120);
   const rows = (isC360 ? VQS.map((row, index) => (C360_FAIL.has(index) ? { ...row, result: 'Fail' as const } : row)) : VQS)
     .map((row) => (phase === 'synced' ? { ...row, result: 'Pass' as const } : row));
   const offers = phase === 'syncing' || phase === 'synced'
@@ -355,7 +354,7 @@ function ModelVqPage({ model, onBack, onSaved }: { model: CalibrationModel; onBa
           <div className={`vq-details ${busy ? 'vq-details-scanning' : ''}`}>
               <div className="vq-details-row">
                 <span>
-                  <strong>Model match VQ:</strong>{' '}
+                  <strong>Semantic Coverage:</strong>{' '}
                   {phase === 'stale' ? null : busy ? (
                     <span className="ac-badge ac-badge-neutral cal-recalculating"><span className="cal-spinner" /> Recalculating</span>
                   ) : phase === 'synced' ? (
@@ -372,9 +371,6 @@ function ModelVqPage({ model, onBack, onSaved }: { model: CalibrationModel; onBa
                   <div className="cal-scan-label">
                     <span>
                       <strong>Processing:</strong> {Math.round(scanProgress * 100)}%
-                      {phase === 'syncing' && (
-                        <span className="cal-scan-elapsed"> ({Math.floor(elapsedSec / 60)}m {elapsedSec % 60}s elapsed)</span>
-                      )}
                     </span>
                     <span className="cal-scan-remaining">Estimated Remaining Time: {Math.max(0, Math.ceil((1 - scanProgress) * 30))}sec</span>
                   </div>
@@ -402,7 +398,7 @@ function ModelVqPage({ model, onBack, onSaved }: { model: CalibrationModel; onBa
               <span className="agent-avatar" aria-hidden>
                 <AgentAstro size={18} />
               </span>
-              <p>Model match VQ changed from <strong>{model.score}%</strong> to <strong>{syncedScore}%</strong>.</p>
+              <p>Semantic Coverage changed from <strong>{model.score}%</strong> to <strong>{syncedScore}%</strong>.</p>
             </div>
           )}
 
