@@ -14,9 +14,10 @@ import {
 interface WorkbenchProps {
   questions: Question[];
   onOpenQuestion: (id: string) => void;
+  onUploadQuestions: () => void;
 }
 
-export function Workbench({ questions, onOpenQuestion }: WorkbenchProps) {
+export function Workbench({ questions, onOpenQuestion, onUploadQuestions }: WorkbenchProps) {
   const [search, setSearch] = useState('');
   const [passRate, setPassRate] = useState('all');
   const [agent, setAgent] = useState('any');
@@ -55,7 +56,12 @@ export function Workbench({ questions, onOpenQuestion }: WorkbenchProps) {
   return (
     <div className="workbench-layout">
       <div className="workbench-page-header">
-        <h1 className="workbench-page-title">All Questions</h1>
+        <div className="workbench-page-header-row">
+          <h1 className="workbench-page-title">All Questions</h1>
+          <button type="button" className="btn btn-outlined" onClick={onUploadQuestions}>
+            Upload Questions
+          </button>
+        </div>
       </div>
       {regressionCount > 0 && (
         <div className="workbench-regression-alert">

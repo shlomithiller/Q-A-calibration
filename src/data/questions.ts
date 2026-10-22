@@ -1,5 +1,5 @@
 export type Classification = 'new' | 'inaccurate' | 'accurate' | 'regression';
-export type Source = 'Manual' | 'Feedback' | 'AI Generated';
+export type Source = 'Manual' | 'Feedback' | 'AI Generated' | 'CSV';
 
 export interface ChartPoint {
   label: string;

@@ -9,6 +9,8 @@ import { TestSuitesList } from './components/TestSuitesList';
 import { questions as seedQuestions } from './data/questions';
 import type { Classification, Question } from './data/questions';
 import { CreateTestModal } from './components/CreateTestModal';
+import { UploadQuestionsModal } from './components/UploadQuestionsModal';
+import { questionFromCsvRow, type ParsedQuestionRow } from './lib/parseQuestionCsv';
 import { DiffModal } from './components/DiffModal';
 import { Close, Check, SparkleSingle } from './components/Icons';
 import { SqlCurationModal } from './components/SqlCurationModal';
@@ -44,6 +46,7 @@ export default function App() {
   const [correction, setCorrection] = useState('');
   const [allDone, setAllDone] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [showRerunDialog, setShowRerunDialog] = useState(false);
   const [testFailedIds, setTestFailedIds] = useState<Set<string>>(new Set());
   const [testOutcomes, setTestOutcomes] = useState<Record<string, DualRunOutcome>>({});
@@ -387,6 +390,7 @@ export default function App() {
         <Workbench
           questions={questions}
           onOpenQuestion={openQuestion}
+          onUploadQuestions={() => setShowUploadModal(true)}
         />
       );
     }
@@ -540,6 +544,21 @@ export default function App() {
       >
         {renderBody()}
       </AppShell>
+      {showUploadModal && (
+        <UploadQuestionsModal
+          questions={questions}
+          onClose={() => setShowUploadModal(false)}
+          onInsert={(rows: ParsedQuestionRow[]) => {
+            const created = rows.map((row, index) => questionFromCsvRow(row, index));
+            setQuestions((prev) => [...created, ...prev]);
+            setShowUploadModal(false);
+            showToast({
+              variant: 'accurate',
+              text: `${created.length} question${created.length === 1 ? '' : 's'} added`,
+            });
+          }}
+        />
+      )}
       {showTestModal && (
         <CreateTestModal
           questions={questions.filter((q) => q.classification === 'accurate')}

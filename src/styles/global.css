@@ -493,6 +493,13 @@ a:hover {
   gap: var(--space-6);
 }
 
+.workbench-page-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
 .workbench-page-title {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-regular);
@@ -3093,6 +3100,53 @@ a:hover {
   color: #a8cbff;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.upload-questions-copy {
+  margin: 0;
+  color: var(--color-on-surface-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.upload-questions-copy p {
+  margin: 0 0 8px;
+}
+
+.upload-questions-copy ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.upload-questions-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-on-surface-1);
+  font-size: 13px;
+}
+
+.upload-questions-error {
+  margin: 0;
+  color: var(--color-error, #ba0517);
+  font-size: 13px;
+}
+
+.upload-questions-summary {
+  margin: 0;
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-surface-2);
+}
+
+.modal-table tbody tr.upload-row-failed,
+.modal-table tbody tr.upload-row-duplicate {
+  color: var(--color-on-surface-1);
+}
+
+.modal-table tbody tr.upload-row-failed:hover,
+.modal-table tbody tr.upload-row-duplicate:hover {
+  background: transparent;
 }
 
 .modal-selection-banner .selection-action:hover {
