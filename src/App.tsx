@@ -10,7 +10,8 @@ import { questions as seedQuestions } from './data/questions';
 import type { Classification, Question } from './data/questions';
 import { CreateTestModal } from './components/CreateTestModal';
 import { UploadQuestionsModal } from './components/UploadQuestionsModal';
-import { questionFromCsvRow, type ParsedQuestionRow } from './lib/parseQuestionCsv';
+import { AddQuestionModal } from './components/AddQuestionModal';
+import { newQuestion, questionFromCsvRow, type ParsedQuestionRow } from './lib/parseQuestionCsv';
 import { DiffModal } from './components/DiffModal';
 import { Close, Check, SparkleSingle } from './components/Icons';
 import { SqlCurationModal } from './components/SqlCurationModal';
@@ -47,6 +48,7 @@ export default function App() {
   const [allDone, setAllDone] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showRerunDialog, setShowRerunDialog] = useState(false);
   const [testFailedIds, setTestFailedIds] = useState<Set<string>>(new Set());
   const [testOutcomes, setTestOutcomes] = useState<Record<string, DualRunOutcome>>({});
@@ -390,7 +392,9 @@ export default function App() {
         <Workbench
           questions={questions}
           onOpenQuestion={openQuestion}
-          onUploadQuestions={() => setShowUploadModal(true)}
+          onAddQuestion={() => setShowAddModal(true)}
+          onGenerateQuestion={() => showToast({ variant: 'accurate', text: 'Generate Question is not available yet' })}
+          onUploadCsv={() => setShowUploadModal(true)}
         />
       );
     }
@@ -544,6 +548,17 @@ export default function App() {
       >
         {renderBody()}
       </AppShell>
+      {showAddModal && (
+        <AddQuestionModal
+          questions={questions}
+          onClose={() => setShowAddModal(false)}
+          onAdd={(utterance, semanticModel) => {
+            setQuestions((prev) => [newQuestion(utterance, semanticModel, 'Manual'), ...prev]);
+            setShowAddModal(false);
+            showToast({ variant: 'accurate', text: 'Question added' });
+          }}
+        />
+      )}
       {showUploadModal && (
         <UploadQuestionsModal
           questions={questions}
@@ -551,7 +566,6 @@ export default function App() {
           onInsert={(rows: ParsedQuestionRow[]) => {
             const created = rows.map((row, index) => questionFromCsvRow(row, index));
             setQuestions((prev) => [...created, ...prev]);
-            setShowUploadModal(false);
             showToast({
               variant: 'accurate',
               text: `${created.length} question${created.length === 1 ? '' : 's'} added`,

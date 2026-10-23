@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Question } from '../data/questions';
 import {
   Search,
@@ -9,16 +9,22 @@ import {
   ChevronRight,
   Warning,
   VerifiedCheck,
+  Sparkles,
+  Upload,
 } from './Icons';
 
 interface WorkbenchProps {
   questions: Question[];
   onOpenQuestion: (id: string) => void;
-  onUploadQuestions: () => void;
+  onAddQuestion: () => void;
+  onGenerateQuestion: () => void;
+  onUploadCsv: () => void;
 }
 
-export function Workbench({ questions, onOpenQuestion, onUploadQuestions }: WorkbenchProps) {
+export function Workbench({ questions, onOpenQuestion, onAddQuestion, onGenerateQuestion, onUploadCsv }: WorkbenchProps) {
   const [search, setSearch] = useState('');
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
   const [passRate, setPassRate] = useState('all');
   const [agent, setAgent] = useState('any');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -53,14 +59,62 @@ export function Workbench({ questions, onOpenQuestion, onUploadQuestions }: Work
     setAgent('any');
   };
 
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      if (!addMenuRef.current?.contains(event.target as Node)) setAddMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [addMenuOpen]);
+
   return (
     <div className="workbench-layout">
       <div className="workbench-page-header">
         <div className="workbench-page-header-row">
           <h1 className="workbench-page-title">All Questions</h1>
-          <button type="button" className="btn btn-outlined" onClick={onUploadQuestions}>
-            Upload Questions
-          </button>
+          <div className="add-questions" ref={addMenuRef}>
+            <div className="add-questions-group">
+              <button type="button" className="add-questions-main" onClick={onAddQuestion}>
+                Add Questions
+              </button>
+              <button
+                type="button"
+                className="add-questions-toggle"
+                aria-label="More ways to add questions"
+                aria-expanded={addMenuOpen}
+                onClick={() => setAddMenuOpen((open) => !open)}
+              >
+                <ChevronDown size={14} />
+              </button>
+            </div>
+            {addMenuOpen && (
+              <div className="add-questions-menu" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    onGenerateQuestion();
+                  }}
+                >
+                  <Sparkles size={16} />
+                  Generate Question
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    onUploadCsv();
+                  }}
+                >
+                  <Upload size={16} />
+                  Upload CSV
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {regressionCount > 0 && (

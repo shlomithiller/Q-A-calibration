@@ -1,5 +1,5 @@
-import type { Question } from '../data/questions';
-import { semanticModels } from '../data/semanticModels';
+import type { Question, Source } from '../data/questions';
+import { resolveSemanticModel } from '../data/semanticModels';
 
 export type CsvRowStatus = 'ready' | 'failed' | 'duplicate';
 
@@ -22,11 +22,22 @@ interface ExistingQuestion {
   semanticModel: string;
 }
 
+function delimiterFor(text: string): ',' | ';' | '\t' {
+  const firstLine = text.split(/\r?\n/, 1)[0] ?? '';
+  const commas = firstLine.split(',').length;
+  const semicolons = firstLine.split(';').length;
+  const tabs = firstLine.split('\t').length;
+  if (semicolons > commas && semicolons >= tabs) return ';';
+  if (tabs > commas && tabs > semicolons) return '\t';
+  return ',';
+}
+
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = '';
   let inQuotes = false;
+  const delimiter = delimiterFor(text);
   const src = text.replace(/^\uFEFF/, '');
 
   for (let i = 0; i < src.length; i++) {
@@ -46,7 +57,7 @@ function parseCsv(text: string): string[][] {
     }
     if (ch === '"') {
       inQuotes = true;
-    } else if (ch === ',') {
+    } else if (ch === delimiter) {
       row.push(cell);
       cell = '';
     } else if (ch === '\n' || ch === '\r') {
@@ -79,8 +90,18 @@ export function parseQuestionCsv(text: string, existing: ExistingQuestion[]): Qu
   }
 
   const header = table[0].map((cell) => cell.trim().toLowerCase());
-  const utteranceIndex = header.indexOf('utterance');
-  const sdmIndex = header.indexOf('sdm');
+  const utteranceNames = new Set(['utterance', 'question']);
+  const sdmNames = new Set([
+    'sdm',
+    'sdm id',
+    'sdm api name',
+    'semantic model',
+    'semantic model id',
+    'semantic model api name',
+    'api name',
+  ]);
+  const utteranceIndex = header.findIndex((cell) => utteranceNames.has(cell));
+  const sdmIndex = header.findIndex((cell) => sdmNames.has(cell));
   if (utteranceIndex < 0 || sdmIndex < 0) {
     return {
       error: 'The CSV needs Utterance and SDM columns. SDM must be an id or API name.',
@@ -109,31 +130,19 @@ export function parseQuestionCsv(text: string, existing: ExistingQuestion[]): Qu
       return;
     }
 
-    const normalized = sdmInput.toLowerCase();
-    const matched = semanticModels.find(
-      (model) => model.id.toLowerCase() === normalized || model.apiName.toLowerCase() === normalized,
-    );
-    const displayOnly = semanticModels.find((model) => model.displayName.toLowerCase() === normalized);
-    if (!matched && displayOnly) {
-      rows.push({
-        ...base,
-        status: 'failed',
-        reason: 'Display names are not accepted. Use the SDM id or API name.',
-      });
-      return;
-    }
-    if (!matched) {
-      rows.push({ ...base, status: 'failed', reason: 'SDM not found' });
+    const resolved = resolveSemanticModel(sdmInput);
+    if (!resolved.ok) {
+      rows.push({ ...base, status: 'failed', reason: resolved.reason });
       return;
     }
 
-    const key = questionKey(utterance, matched.displayName);
+    const key = questionKey(utterance, resolved.displayName);
     if (seen.has(key)) {
       rows.push({
         ...base,
         status: 'duplicate',
-        displayName: matched.displayName,
-        reason: existingKeys.has(key) ? 'Already in the question list' : 'Duplicate in this file',
+        displayName: resolved.displayName,
+        reason: 'Exists in questions list',
       });
       return;
     }
@@ -142,7 +151,7 @@ export function parseQuestionCsv(text: string, existing: ExistingQuestion[]): Qu
     rows.push({
       ...base,
       status: 'ready',
-      displayName: matched.displayName,
+      displayName: resolved.displayName,
     });
   });
 
@@ -150,17 +159,23 @@ export function parseQuestionCsv(text: string, existing: ExistingQuestion[]): Qu
 }
 
 export function questionFromCsvRow(row: ParsedQuestionRow, index: number): Question {
+  return newQuestion(row.utterance, row.displayName ?? '', 'CSV', `csv-${Date.now()}-${index}-${row.line}`);
+}
+
+export function newQuestion(text: string, semanticModel: string, source: Source, id?: string): Question {
   return {
-    id: `csv-${Date.now()}-${index}-${row.line}`,
-    text: row.utterance,
-    source: 'CSV',
+    id: id ?? `${source.toLowerCase()}-${Date.now()}`,
+    text,
+    source,
     thumbsUp: 0,
     thumbsDown: 0,
-    semanticModel: row.displayName ?? '',
+    semanticModel,
     lastModified: 'Just now',
     classification: 'new',
     response: {
-      summary: 'Uploaded from CSV. No answer has been generated yet.',
+      summary: source === 'CSV'
+        ? 'Uploaded from CSV. No answer has been generated yet.'
+        : 'Added manually. No answer has been generated yet.',
       followUp: 'Run this question to generate an answer.',
       sql: '-- No SQL yet',
       chartYAxisLabel: 'Value',
