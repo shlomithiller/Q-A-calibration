@@ -188,7 +188,7 @@ export function QuestionDetail({
             {loading ? (
               <div className="message">
                 <div className="avatar-sm agent">
-                  <img src="/avatars/agent-avatar.svg" alt="" className="avatar-img" />
+                  <img src={`${import.meta.env.BASE_URL}avatars/agent-avatar.svg`} alt="" className="avatar-img" />
                 </div>
                 <div className="body">
                   <div className="author">Agent</div>
@@ -202,7 +202,7 @@ export function QuestionDetail({
             ) : (
               <div className="message">
                 <div className="avatar-sm agent">
-                  <img src="/avatars/agent-avatar.svg" alt="" className="avatar-img" />
+                  <img src={`${import.meta.env.BASE_URL}avatars/agent-avatar.svg`} alt="" className="avatar-img" />
                 </div>
                 <div className="body">
                   <div className="author">Agent</div>

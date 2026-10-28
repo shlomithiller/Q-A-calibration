@@ -466,7 +466,7 @@ function ModelVqPage({ model, onBack, onSaved }: { model: CalibrationModel; onBa
 function AppliedEmpty() {
   return (
     <div className="vq-panel-empty">
-      <img className="vq-panel-empty-illo" src="/illustrations/applied-calibrations.png" alt="" />
+      <img className="vq-panel-empty-illo" src={`${import.meta.env.BASE_URL}illustrations/applied-calibrations.png`} alt="" />
       <p className="vq-panel-empty-title">you have applied all calibration suggestions.</p>
       <p className="vq-panel-empty-sub">Analysing Score</p>
     </div>

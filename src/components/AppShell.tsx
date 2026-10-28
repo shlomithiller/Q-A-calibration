@@ -40,7 +40,7 @@ export function AppShell({
             </button>
           </div>
           <div className="header-user">
-            <img className="avatar" src="/avatars/header-avatar.svg" alt="User" />
+            <img className="avatar" src={`${import.meta.env.BASE_URL}avatars/header-avatar.svg`} alt="User" />
             <ChevronDown size={12} className="avatar-chevron" />
           </div>
         </div>

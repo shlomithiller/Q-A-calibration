@@ -426,7 +426,7 @@ export default function App() {
         <div className="classification-panel">
           <div className="classification-panel-header">Classification</div>
           <div className="done-panel-state">
-            <img src="/illustrations/all-caught-up.svg" alt="" className="done-panel-illo" />
+            <img src={`${import.meta.env.BASE_URL}illustrations/all-caught-up.svg`} alt="" className="done-panel-illo" />
             <h3 className="done-panel-title">You're all caught up</h3>
             <p className="done-panel-text">
               Every question in this batch has been classified. Review

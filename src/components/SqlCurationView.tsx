@@ -511,7 +511,7 @@ export function SqlCurationView({ question, sqlValue, onSqlChange, onSave, onBac
             {answerPreviewExpanded && (
               <div className="scv-answer-preview-body">
                 <div className="scv-answer-preview-agent">
-                  <img className="avatar" src="/avatars/header-avatar.svg" alt="Agent" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                  <img className="avatar" src={`${import.meta.env.BASE_URL}avatars/header-avatar.svg`} alt="Agent" style={{ width: 28, height: 28, borderRadius: '50%' }} />
                   <div className="scv-answer-preview-bubble">
                     <p className="scv-answer-preview-summary">{question.response.summary}</p>
                     <div className="scv-answer-preview-chart">
