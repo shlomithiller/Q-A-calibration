@@ -8259,10 +8259,171 @@ a:hover {
 .vq-impacted {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
-  font-size: 13px;
+  font-size: 12px;
   color: #5c5c5c;
+}
+
+.vq-impacted input[type="checkbox"] {
+  appearance: none;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+  border-radius: 999px;
+  background: #c9c9c9;
+  position: relative;
+  cursor: pointer;
+}
+
+.vq-impacted input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+
+.vq-impacted input[type="checkbox"]:checked {
+  background: #0250d9;
+}
+
+.vq-impacted input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
+}
+
+.cal-suggest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-suggest {
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.cal-suggest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 8px 6px 10px;
+}
+
+.cal-suggest-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #181818;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 590;
+  cursor: pointer;
+}
+
+.cal-edit-model {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid #5c5c5c;
+  border-radius: 999px;
+  background: #fff;
+  color: #0250d9;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 590;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cal-suggest-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 12px 12px 32px;
+}
+
+.cal-impact-row {
+  position: relative;
+  align-self: flex-start;
+}
+
+.cal-impact-info {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cal-impact-popover {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 240px;
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  color: #2e2e2e;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.cal-impact-popover p {
+  margin: 0;
+}
+
+.cal-impact-popover button {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #5c5c5c;
+  cursor: pointer;
+}
+
+.cal-suggest-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #2e2e2e;
+  font-size: 12px;
+  font-weight: 590;
+}
+
+.cal-suggest-field input,
+.cal-suggest-field textarea {
+  width: 100%;
+  border: 1px solid #c9c9c9;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #181818;
+  font: inherit;
+  font-weight: 400;
+  font-size: 13px;
+  resize: none;
+}
+
+.cal-suggest-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .vq-panel-footer {

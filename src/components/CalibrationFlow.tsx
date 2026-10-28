@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AgentAstro, ArrowLeft, Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Close, ImpactArrow, Info, Search, SparkleSingle, VerifiedCheck } from './Icons';
+import { AgentAstro, ArrowLeft, Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Close, Info, Search, SparkleSingle, VerifiedCheck } from './Icons';
 
 type Impact = 'High' | 'Medium' | 'Low';
 type ScoreTone = 'warning' | 'success' | 'error';
@@ -263,14 +263,17 @@ export function CalibrationFlow({ onBack, onSaved }: CalibrationFlowProps) {
   );
 }
 
-const IMPACTED_ROWS = {
-  calculated: [0, 7, 8],
-  preference: [1, 2, 3, 4, 5, 6, 9, 10, 11, 12],
-} as const;
+type OfferKind = 'calculated' | 'preference' | 'description';
+
+const IMPACTED_ROWS: Record<OfferKind, number[]> = {
+  calculated: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+  preference: [0, 7, 8],
+  description: [1, 2, 3],
+};
 
 function ModelVqPage({ model, onBack, onSaved }: { model: CalibrationModel; onBack: () => void; onSaved: (message: string) => void }) {
   const isC360 = model.id === 'c360';
-  const [impacted, setImpacted] = useState<'calculated' | 'preference' | null>(null);
+  const [impacted, setImpacted] = useState<OfferKind | null>(null);
   const [phase, setPhase] = useState<'stale' | 'scanning' | 'ready' | 'syncing' | 'synced'>(isC360 ? 'stale' : 'ready');
   const [scanProgress, setScanProgress] = useState(0);
   const scanFrame = useRef(0);
@@ -280,13 +283,11 @@ function ModelVqPage({ model, onBack, onSaved }: { model: CalibrationModel; onBa
   const syncedScore = 80;
   const rows = (isC360 ? VQS.map((row, index) => (C360_FAIL.has(index) ? { ...row, result: 'Fail' as const } : row)) : VQS)
     .map((row) => (phase === 'synced' ? { ...row, result: 'Pass' as const } : row));
-  const offers = phase === 'syncing' || phase === 'synced'
+  const offers: OfferKind[] = phase === 'syncing' || phase === 'synced'
     ? []
     : phase === 'stale'
-      ? (['preference'] as const)
-      : isC360
-        ? (['preference', 'calculated'] as const)
-        : (['calculated', 'preference'] as const);
+      ? ['preference']
+      : ['calculated', 'preference', 'description'];
 
   useEffect(() => () => cancelAnimationFrame(scanFrame.current), []);
 
@@ -472,6 +473,36 @@ function AppliedEmpty() {
   );
 }
 
+const SUGGESTIONS: Record<OfferKind, {
+  title: string;
+  impact: Impact;
+  impactKey: 'high' | 'medium' | 'low';
+  count: number;
+  hint: string;
+}> = {
+  calculated: {
+    title: 'Add Calculated Field',
+    impact: 'High',
+    impactKey: 'high',
+    count: 10,
+    hint: 'Designed to help the agent answer accurately questions like: “What is the relationship CSAT per region?”',
+  },
+  preference: {
+    title: 'Add Business Preference',
+    impact: 'Medium',
+    impactKey: 'medium',
+    count: 3,
+    hint: 'Designed to help the agent answer accurately questions like: “Show average deal size for each region”',
+  },
+  description: {
+    title: 'Add Description',
+    impact: 'Medium',
+    impactKey: 'medium',
+    count: 3,
+    hint: 'Designed to help the agent identify Account Name when questions refer to the account.',
+  },
+};
+
 function SuggestionPanel({
   offers,
   applied = false,
@@ -481,71 +512,35 @@ function SuggestionPanel({
   impacted,
   onImpacted,
 }: {
-  offers: Array<'calculated' | 'preference'>;
+  offers: OfferKind[];
   applied?: boolean;
   onClose: () => void;
   onCalibrate: (label: string) => void;
   onSync: () => void;
-  impacted: 'calculated' | 'preference' | null;
-  onImpacted: (value: 'calculated' | 'preference' | null) => void;
+  impacted: OfferKind | null;
+  onImpacted: (value: OfferKind | null) => void;
 }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [impactFilter, setImpactFilter] = useState('all');
-  const [step, setStep] = useState<'calculated' | 'preference' | null>(null);
-  const showCalculated = offers.includes('calculated') && (typeFilter === 'all' || typeFilter === 'calculated') && (impactFilter === 'all' || impactFilter === 'high');
-  const showPreference = offers.includes('preference') && (typeFilter === 'all' || typeFilter === 'preference') && (impactFilter === 'all' || impactFilter === 'medium');
+  const [open, setOpen] = useState<OfferKind | null>(null);
+  const [hint, setHint] = useState<OfferKind | null>(null);
+  const [editor, setEditor] = useState<OfferKind | null>(null);
+  const [done, setDone] = useState<OfferKind[]>([]);
 
-  const calculatedCard = showCalculated ? (
-    <div className="calibration-card" key="calculated">
-      <span className="cal-impact cal-impact-high">Impact: High <ImpactArrow size={12} /></span>
-      <div className="calibration-card-header">
-        <span className="calibration-card-icon description" />
-        <span className="calibration-card-title">Add Calculated Field</span>
-      </div>
-      <p className="calibration-card-body">
-        Designed to help the agent answer accurately questions like: “What is the relationship CSAT per region?”
-      </p>
-      <div className="calibration-card-actions">
-        <button type="button" className="btn btn-brand btn-with-icon" onClick={() => setStep('calculated')}>
-          <SparkleSingle size={14} /> Calibrate
-        </button>
-        <label className="vq-impacted">
-          <input
-            type="checkbox"
-            checked={impacted === 'calculated'}
-            onChange={() => onImpacted(impacted === 'calculated' ? null : 'calculated')}
-          />
-          Impacted Questions (3)
-        </label>
-      </div>
-    </div>
-  ) : null;
+  const visible = offers.filter((kind) => {
+    if (done.includes(kind)) return false;
+    const meta = SUGGESTIONS[kind];
+    const typeOk = typeFilter === 'all' || typeFilter === kind;
+    const impactOk = impactFilter === 'all' || impactFilter === meta.impactKey;
+    return typeOk && impactOk;
+  });
 
-  const preferenceCard = showPreference ? (
-    <div className="calibration-card" key="preference">
-      <span className="cal-impact cal-impact-medium">Impact: Medium <ImpactArrow size={12} /></span>
-      <div className="calibration-card-header">
-        <span className="calibration-card-icon description" />
-        <span className="calibration-card-title">Add Business Preference</span>
-      </div>
-      <p className="calibration-card-body">
-        Designed to help the agent answer accurately questions like: “Show average deal size for each region”
-      </p>
-      <div className="calibration-card-actions">
-        <button type="button" className="btn btn-brand btn-with-icon" onClick={() => onCalibrate('Add Business Preference')}>
-          <SparkleSingle size={14} /> Calibrate
-        </button>
-        <label className="vq-impacted">
-          <input
-            type="checkbox"
-            checked={impacted === 'preference'}
-            onChange={() => onImpacted(impacted === 'preference' ? null : 'preference')}
-          />
-          Impacted Questions (10)
-        </label>
-      </div>
-    </div>
-  ) : null;
+  const applyOne = (kind: OfferKind) => {
+    setDone((current) => current.includes(kind) ? current : [...current, kind]);
+    if (impacted === kind) onImpacted(null);
+    if (open === kind) setOpen(null);
+    onCalibrate(SUGGESTIONS[kind].title);
+  };
 
   return (
     <aside className="calibration-side-panel vq-suggest-panel">
@@ -566,9 +561,7 @@ function SuggestionPanel({
               onChange={(event) => {
                 const next = event.target.value;
                 setTypeFilter(next);
-                if (next === 'calculated' && impacted === 'preference') onImpacted(null);
-                if (next === 'preference' && impacted === 'calculated') onImpacted(null);
-                if (next === 'description') onImpacted(null);
+                if (next !== 'all' && impacted && impacted !== next) onImpacted(null);
               }}
             >
               <option value="all">All Calibrations Types</option>
@@ -587,12 +580,10 @@ function SuggestionPanel({
               onChange={(event) => {
                 const next = event.target.value;
                 setImpactFilter(next);
-                if (next === 'high' && impacted === 'preference') onImpacted(null);
-                if (next === 'medium' && impacted === 'calculated') onImpacted(null);
-                if (next === 'low') onImpacted(null);
+                if (impacted && next !== 'all' && SUGGESTIONS[impacted].impactKey !== next) onImpacted(null);
               }}
             >
-              <option value="all">Impact: All</option>
+              <option value="all">Impact</option>
               <option value="high">Impact: High</option>
               <option value="medium">Impact: Medium</option>
               <option value="low">Impact: Low</option>
@@ -611,35 +602,154 @@ function SuggestionPanel({
             </p>
           </div>
         )}
-        {offers.map((kind) => (kind === 'calculated' ? calculatedCard : preferenceCard))}
-        {applied && <AppliedEmpty />}
+        <div className="cal-suggest-list">
+          {visible.map((kind) => (
+            <SuggestionSection
+              key={kind}
+              kind={kind}
+              expanded={open === kind}
+              hintOpen={hint === kind}
+              impacted={impacted === kind}
+              onToggle={() => {
+                setOpen(open === kind ? null : kind);
+                setHint(null);
+              }}
+              onHint={() => setHint(hint === kind ? null : kind)}
+              onEdit={() => setEditor(kind)}
+              onApply={() => applyOne(kind)}
+              onImpacted={() => onImpacted(impacted === kind ? null : kind)}
+            />
+          ))}
+        </div>
+        {(applied || (offers.length > 0 && offers.every((kind) => done.includes(kind)))) && <AppliedEmpty />}
       </div>
       <div className="vq-panel-footer">
-        <button type="button" className="btn btn-outlined" onClick={onSync} disabled={applied}>Calibrate All</button>
+        <button type="button" className="btn btn-outlined" onClick={onSync} disabled={applied || visible.length === 0}>Apply All</button>
       </div>
-      {step === 'calculated' && (
+      {editor === 'calculated' && (
         <CalculatedFieldModal
-          onClose={() => setStep(null)}
+          onClose={() => setEditor(null)}
           onSave={() => {
-            setStep(null);
-            onCalibrate('Add Calculated Field');
+            setEditor(null);
+            applyOne('calculated');
           }}
           onSaveNext={() => {
-            onCalibrate('Add Calculated Field');
-            setStep('preference');
+            applyOne('calculated');
+            setEditor('preference');
           }}
         />
       )}
-      {step === 'preference' && (
+      {editor === 'preference' && (
         <PreferenceModal
-          onClose={() => setStep(null)}
+          onClose={() => setEditor(null)}
           onAdd={() => {
-            setStep(null);
-            onSync();
+            setEditor(null);
+            applyOne('preference');
+          }}
+        />
+      )}
+      {editor === 'description' && (
+        <DescriptionModal
+          onClose={() => setEditor(null)}
+          onSave={() => {
+            setEditor(null);
+            applyOne('description');
           }}
         />
       )}
     </aside>
+  );
+}
+
+function SuggestionSection({
+  kind,
+  expanded,
+  hintOpen,
+  impacted,
+  onToggle,
+  onHint,
+  onEdit,
+  onApply,
+  onImpacted,
+}: {
+  kind: OfferKind;
+  expanded: boolean;
+  hintOpen: boolean;
+  impacted: boolean;
+  onToggle: () => void;
+  onHint: () => void;
+  onEdit: () => void;
+  onApply: () => void;
+  onImpacted: () => void;
+}) {
+  const meta = SUGGESTIONS[kind];
+  return (
+    <section className={`cal-suggest ${expanded ? 'is-open' : ''}`}>
+      <div className="cal-suggest-head">
+        <button type="button" className="cal-suggest-toggle" onClick={onToggle} aria-expanded={expanded}>
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <span>{meta.title}</span>
+        </button>
+        <button type="button" className="cal-edit-model" onClick={onEdit}>Edit in model</button>
+      </div>
+      {expanded && (
+        <div className="cal-suggest-body">
+          <div className="cal-impact-row">
+            <span className={`cal-impact cal-impact-${meta.impactKey}`}>
+              Impact: {meta.impact}
+              <button type="button" className="cal-impact-info" aria-label="About this impact" onClick={onHint}>
+                <Info size={12} />
+              </button>
+            </span>
+            {hintOpen && (
+              <div className="cal-impact-popover" role="dialog">
+                <p>{meta.hint}</p>
+                <button type="button" aria-label="Close" onClick={onHint}><Close size={12} /></button>
+              </div>
+            )}
+          </div>
+          {kind === 'calculated' && (
+            <>
+              <label className="cal-suggest-field">
+                <span>Name</span>
+                <input readOnly value="Relationship CSAT Percentage" />
+              </label>
+              <label className="cal-suggest-field">
+                <span>Formula</span>
+                <textarea readOnly rows={3} value={CALC_FORMULA} />
+              </label>
+            </>
+          )}
+          {kind === 'preference' && (
+            <label className="cal-suggest-field">
+              <span>Business Preference</span>
+              <textarea readOnly rows={3} value="The total discount cannot exceed 30% of the product's list price" />
+            </label>
+          )}
+          {kind === 'description' && (
+            <>
+              <label className="cal-suggest-field">
+                <span>Data Field Name</span>
+                <input readOnly value="Account Name" />
+              </label>
+              <label className="cal-suggest-field">
+                <span>Description</span>
+                <textarea readOnly rows={2} value="Allows you to identify the account" />
+              </label>
+            </>
+          )}
+          <div className="cal-suggest-actions">
+            <button type="button" className="btn btn-brand btn-with-icon" onClick={onApply}>
+              <SparkleSingle size={14} /> Apply
+            </button>
+            <label className="vq-impacted">
+              Impacted Questions ({meta.count})
+              <input type="checkbox" role="switch" checked={impacted} onChange={onImpacted} />
+            </label>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -746,6 +856,36 @@ function CalculatedFieldModal({ onClose, onSave, onSaveNext }: { onClose: () => 
             <button type="button" className="btn btn-outlined" onClick={onClose}>Skip</button>
             <button type="button" className="btn btn-outlined" onClick={onSave}>Save</button>
             <button type="button" className="btn btn-brand" onClick={onSaveNext}>Save &amp; Next (1)</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function DescriptionModal({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="ac-modal pref-modal" role="dialog" aria-labelledby="desc-title" onClick={(event) => event.stopPropagation()}>
+        <button className="ac-modal-close" aria-label="Close" onClick={onClose}>
+          <Close size={14} />
+        </button>
+        <h2 id="desc-title">Add Description</h2>
+        <div className="pref-body">
+          <label>
+            Data Field Name
+            <input defaultValue="Account Name" aria-label="Data field name" />
+          </label>
+          <label>
+            Description
+            <textarea defaultValue="Allows you to identify the account" rows={3} />
+          </label>
+        </div>
+        <footer className="ac-modal-footer">
+          <button type="button" className="btn btn-outlined" onClick={onClose}>Back</button>
+          <div className="ac-modal-footer-right">
+            <button type="button" className="btn btn-outlined" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-brand" onClick={onSave}>Save</button>
           </div>
         </footer>
       </div>
