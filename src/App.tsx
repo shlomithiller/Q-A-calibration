@@ -30,6 +30,7 @@ type ToastVariant = 'accurate' | 'inaccurate';
 interface ToastMsg {
   variant: ToastVariant;
   text: string;
+  detail?: string;
 }
 
 export default function App() {
@@ -563,12 +564,15 @@ export default function App() {
         <UploadQuestionsModal
           questions={questions}
           onClose={() => setShowUploadModal(false)}
-          onInsert={(rows: ParsedQuestionRow[]) => {
+          onInsert={(rows: ParsedQuestionRow[], duplicates: number) => {
             const created = rows.map((row, index) => questionFromCsvRow(row, index));
             setQuestions((prev) => [...created, ...prev]);
             showToast({
               variant: 'accurate',
-              text: `${created.length} question${created.length === 1 ? '' : 's'} added`,
+              text: `${created.length} Question${created.length === 1 ? '' : 's'} successfully added`,
+              detail: duplicates > 0
+                ? `(${duplicates} already exist${duplicates === 1 ? 's' : ''} in the list)`
+                : undefined,
             });
           }}
         />
@@ -607,10 +611,15 @@ export default function App() {
       )}
       {toast && (
         <div className={`toast toast-${toast.variant}`} role="status">
-          <span className="toast-icon" aria-hidden>
-            <Check size={14} />
-          </span>
-          <span className="toast-text">{toast.text}</span>
+          <div className="toast-body">
+            <span className="toast-icon" aria-hidden>
+              <Check size={14} />
+            </span>
+            <span className="toast-text">
+              <span className="toast-title">{toast.text}</span>
+              {toast.detail && <span className="toast-detail">{toast.detail}</span>}
+            </span>
+          </div>
           <button
             className="toast-close"
             aria-label="Dismiss"

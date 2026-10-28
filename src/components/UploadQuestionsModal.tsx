@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Close, Copy, Database, Upload } from './Icons';
+import { Close, Database, Upload } from './Icons';
 import { parseQuestionCsv, type ParsedQuestionRow, type QuestionCsvParseResult } from '../lib/parseQuestionCsv';
 import { semanticModels } from '../data/semanticModels';
 import type { Question } from '../data/questions';
@@ -7,25 +7,24 @@ import type { Question } from '../data/questions';
 interface UploadQuestionsModalProps {
   questions: Question[];
   onClose: () => void;
-  onInsert: (rows: ParsedQuestionRow[]) => void;
+  onInsert: (rows: ParsedQuestionRow[], duplicateCount: number) => void;
 }
 
 export function UploadQuestionsModal({ questions, onClose, onInsert }: UploadQuestionsModalProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const headerCheckRef = useRef<HTMLInputElement>(null);
   const ignoreBackdropUntil = useRef(0);
+  const [modelId, setModelId] = useState('');
   const [fileName, setFileName] = useState('');
   const [fileText, setFileText] = useState('');
   const [dragging, setDragging] = useState(false);
-  const [showLookup, setShowLookup] = useState(false);
-  const [lookupId, setLookupId] = useState('');
-  const [copied, setCopied] = useState(false);
   const [result, setResult] = useState<QuestionCsvParseResult | null>(null);
   const [deselected, setDeselected] = useState<Set<number>>(new Set());
 
+  const selectedModel = semanticModels.find((model) => model.id === modelId);
   const rows = result?.rows ?? [];
+  const visibleRows = rows.filter((row) => row.status !== 'failed');
   const readyRows = rows.filter((row) => row.status === 'ready');
-  const failedCount = rows.filter((row) => row.status === 'failed').length;
   const duplicateCount = rows.filter((row) => row.status === 'duplicate').length;
   const readyLines = readyRows.map((row) => row.line);
   const isReadyChecked = (line: number) => !deselected.has(line);
@@ -39,16 +38,19 @@ export function UploadQuestionsModal({ questions, onClose, onInsert }: UploadQue
   }, [selectedReadyCount, allReadyChecked]);
 
   const openPicker = () => {
+    if (!selectedModel) return;
     ignoreBackdropUntil.current = Date.now() + 1500;
     fileRef.current?.click();
   };
 
-  const previewCsv = (text: string) => {
+  const previewCsv = (text: string, displayName: string) => {
     const parsed = parseQuestionCsv(
       text,
       questions.map((question) => ({ text: question.text, semanticModel: question.semanticModel })),
+      displayName,
     );
-    if (parsed.error || parsed.rows.length === 0) {
+    const usable = parsed.rows.some((row) => row.status !== 'failed');
+    if (parsed.error || !usable) {
       setResult(parsed.error ? parsed : { ...parsed, error: 'The file has no question rows.' });
       return;
     }
@@ -57,11 +59,12 @@ export function UploadQuestionsModal({ questions, onClose, onInsert }: UploadQue
   };
 
   const takeFile = async (file: File) => {
+    if (!selectedModel) return;
     ignoreBackdropUntil.current = Date.now() + 600;
     const text = await file.text();
     setFileName(file.name);
     setFileText(text);
-    previewCsv(text);
+    previewCsv(text, selectedModel.displayName);
   };
 
   const toggleAllReady = () => {
@@ -80,19 +83,11 @@ export function UploadQuestionsModal({ questions, onClose, onInsert }: UploadQue
   const addSelected = () => {
     const chosen = readyRows.filter((row) => isReadyChecked(row.line));
     if (chosen.length === 0) return;
-    onInsert(chosen);
+    onInsert(chosen, duplicateCount);
     onClose();
   };
 
-  const selectedModel = semanticModels.find((model) => model.id === lookupId);
-  const showReview = Boolean(result && !result.error && rows.length > 0);
-
-  const copyApiName = async () => {
-    if (!selectedModel) return;
-    await navigator.clipboard.writeText(selectedModel.apiName);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  };
+  const showReview = Boolean(result && !result.error && visibleRows.length > 0);
 
   return (
     <div
@@ -111,10 +106,12 @@ export function UploadQuestionsModal({ questions, onClose, onInsert }: UploadQue
             <h2 className="upload-modal-title">Select Questions</h2>
             <div className="upload-modal-rule" />
             <div className="csv-review">
-              <p className="csv-review-summary">
-                {readyRows.length} ready · {failedCount} failed · {duplicateCount} duplicate{duplicateCount === 1 ? '' : 's'}
-              </p>
-              <div className="csv-review-scroll">
+              <div className="csv-review-card">
+                <p className="csv-review-model">Model - {selectedModel?.displayName}</p>
+                <p className="csv-review-summary">
+                  {readyRows.length} ready · {duplicateCount} duplicates
+                </p>
+                <div className="csv-review-scroll">
                 <table className="csv-review-table">
                   <thead>
                     <tr>
@@ -129,18 +126,15 @@ export function UploadQuestionsModal({ questions, onClose, onInsert }: UploadQue
                         />
                       </th>
                       <th>Questions</th>
-                      <th>Semantic Model</th>
-                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row) => {
-                      const isError = row.status === 'failed';
+                    {visibleRows.map((row) => {
                       const alreadyExists = row.status === 'duplicate';
-                      const locked = isError || alreadyExists;
+                      const locked = alreadyExists;
                       const checked = alreadyExists || (row.status === 'ready' && isReadyChecked(row.line));
                       return (
-                        <tr key={row.line} className={locked ? 'is-locked' : undefined}>
+                        <tr key={row.line} className={locked ? 'is-locked' : undefined} title={row.reason}>
                           <td className="col-check">
                             <input
                               type="checkbox"
@@ -153,143 +147,103 @@ export function UploadQuestionsModal({ questions, onClose, onInsert }: UploadQue
                             />
                           </td>
                           <td>{row.utterance || '—'}</td>
-                          <td>{row.displayName || row.sdmInput || '—'}</td>
-                          <td>{row.status === 'ready' ? 'Ready' : row.reason}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
             <div className="upload-modal-footer">
-              <button type="button" className="btn-pill-outline" onClick={onClose}>Cancel</button>
-              <button type="button" className="btn-pill-brand" disabled={selectedReadyCount === 0} onClick={addSelected}>
-                Add
-              </button>
+              <button type="button" className="btn-pill-outline" onClick={() => setResult(null)}>Back</button>
+              <div className="upload-modal-footer-actions">
+                <button type="button" className="btn-pill-outline" onClick={onClose}>Cancel</button>
+                <button type="button" className="btn-pill-brand" disabled={selectedReadyCount === 0} onClick={addSelected}>
+                  Add
+                </button>
+              </div>
             </div>
           </>
         ) : (
           <>
-        <h2 className="upload-modal-title">Upload Questions</h2>
-        <p className="upload-modal-subtitle">
-          Ensure your CSV file includes two columns: Utterance and Semantic Model ID (or Semantic Model API Name)
-        </p>
-        <div className="upload-modal-rule" />
-        <div className="upload-modal-body">
-          <div
-            className={`upload-dropzone ${dragging ? 'is-dragging' : ''}`}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(event) => {
-              event.preventDefault();
-              setDragging(false);
-              const file = event.dataTransfer.files?.[0];
-              if (file) void takeFile(file);
-            }}
-          >
-            <button type="button" className="upload-csv-btn" onClick={openPicker}>
-              <Upload size={14} />
-              Upload CSV
-            </button>
-            <p>{fileName || 'or drop CSV'}</p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,text/csv"
-              hidden
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void takeFile(file);
-                event.target.value = '';
-              }}
-            />
-          </div>
-          {result?.error && <p className="upload-questions-error">{result.error}</p>}
-          <div className="upload-info-banner">
-            <span className="upload-info-icon" aria-hidden>i</span>
-            <span>
-              Find my model&apos;s api name{' '}
-              <button type="button" className="upload-info-link" onClick={() => setShowLookup(true)}>
-                show me
-              </button>
-            </span>
-          </div>
-        </div>
-        <div className="upload-modal-footer">
-          <button type="button" className="btn-pill-outline" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-pill-brand" disabled={!fileText} onClick={() => previewCsv(fileText)}>
-            Upload
-          </button>
-        </div>
-          </>
-        )}
-      </div>
-      {showLookup && (
-        <div
-          className="modal-backdrop api-lookup-backdrop"
-          onClick={(event) => {
-            event.stopPropagation();
-            setShowLookup(false);
-          }}
-        >
-          <div className="api-lookup-modal" onClick={(event) => event.stopPropagation()}>
-            <button className="modal-close-btn" onClick={() => setShowLookup(false)} aria-label="Close" type="button">
-              <Close size={14} />
-            </button>
-            <h2 className="upload-modal-title">Get Semantic Model API Name</h2>
+            <h2 className="upload-modal-title">Upload Questions</h2>
+            <p className="upload-modal-subtitle">
+              Ensure your CSV file includes an <strong>Utterance</strong> column. Questions are added to the semantic model you select.
+            </p>
             <div className="upload-modal-rule" />
-            <div className="api-lookup-body">
-              <label className="add-question-field">
+            <div className="upload-modal-body">
+              <label className="upload-model-field">
                 <span>Semantic Model</span>
-                <span className="api-lookup-select">
+                <span className={`upload-model-select ${selectedModel ? 'has-icon' : ''}`}>
                   {selectedModel && (
-                    <span className="api-lookup-model-icon" aria-hidden>
+                    <span className="upload-model-icon" aria-hidden>
                       <Database size={12} />
                     </span>
                   )}
                   <select
-                    value={lookupId}
-                    onChange={(event) => {
-                      setLookupId(event.target.value);
-                      setCopied(false);
-                    }}
+                    value={modelId}
+                    onChange={(event) => setModelId(event.target.value)}
+                    aria-label="Semantic Model"
                   >
-                    <option value="">Select a model</option>
+                    <option value="">Select Model</option>
                     {semanticModels.map((model) => (
                       <option key={model.id} value={model.id}>{model.displayName}</option>
                     ))}
                   </select>
                 </span>
               </label>
-              <label className="add-question-field">
-                <span>Model&apos;s API</span>
-                <span className="api-lookup-value">
-                  <input
-                    readOnly
-                    value={selectedModel?.apiName ?? ''}
-                    placeholder="For example : sales_csv_model"
-                    aria-label="Model API name"
-                  />
-                  <button
-                    type="button"
-                    className="api-lookup-copy"
-                    disabled={!selectedModel}
-                    onClick={() => { void copyApiName(); }}
-                    aria-label={copied ? 'Copied' : 'Copy API name'}
-                  >
-                    <Copy size={16} />
-                  </button>
-                </span>
-                {copied && <span className="api-lookup-copied">Copied</span>}
-              </label>
+              <div
+                className={`upload-dropzone ${dragging ? 'is-dragging' : ''} ${selectedModel ? '' : 'is-disabled'}`}
+                onDragOver={(event) => {
+                  if (!selectedModel) return;
+                  event.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setDragging(false);
+                  if (!selectedModel) return;
+                  const file = event.dataTransfer.files?.[0];
+                  if (file) void takeFile(file);
+                }}
+              >
+                <button type="button" className="upload-csv-btn" disabled={!selectedModel} onClick={openPicker}>
+                  <Upload size={14} />
+                  Upload CSV
+                </button>
+                <p>{fileName || 'or drop CSV'}</p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void takeFile(file);
+                    event.target.value = '';
+                  }}
+                />
+              </div>
+              {result?.error && <p className="upload-questions-error">{result.error}</p>}
             </div>
-          </div>
-        </div>
-      )}
+            <div className="upload-modal-footer">
+              <button type="button" className="btn-pill-outline" onClick={onClose}>Cancel</button>
+              <button
+                type="button"
+                className="btn-pill-brand"
+                disabled={!selectedModel || !fileText}
+                onClick={() => {
+                  if (selectedModel && fileText) previewCsv(fileText, selectedModel.displayName);
+                }}
+              >
+                Upload
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

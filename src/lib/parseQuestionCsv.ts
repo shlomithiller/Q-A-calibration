@@ -1,5 +1,4 @@
 import type { Question, Source } from '../data/questions';
-import { resolveSemanticModel } from '../data/semanticModels';
 
 export type CsvRowStatus = 'ready' | 'failed' | 'duplicate';
 
@@ -83,30 +82,26 @@ function questionKey(utterance: string, displayName: string): string {
   return `${utterance.trim().toLowerCase()}|${displayName.trim().toLowerCase()}`;
 }
 
-export function parseQuestionCsv(text: string, existing: ExistingQuestion[]): QuestionCsvParseResult {
+export function parseQuestionCsv(
+  text: string,
+  existing: ExistingQuestion[],
+  semanticModel: string,
+): QuestionCsvParseResult {
+  const displayName = semanticModel.trim();
+  if (!displayName) {
+    return { error: 'Select a semantic model before uploading.', rows: [] };
+  }
+
   const table = parseCsv(text).filter((row) => row.some((cell) => cell.trim().length > 0));
   if (table.length === 0) {
-    return { error: 'The file is empty. Add a header row with Utterance and SDM.', rows: [] };
+    return { error: 'The file is empty. Add a header row with Utterance.', rows: [] };
   }
 
   const header = table[0].map((cell) => cell.trim().toLowerCase());
   const utteranceNames = new Set(['utterance', 'question']);
-  const sdmNames = new Set([
-    'sdm',
-    'sdm id',
-    'sdm api name',
-    'semantic model',
-    'semantic model id',
-    'semantic model api name',
-    'api name',
-  ]);
   const utteranceIndex = header.findIndex((cell) => utteranceNames.has(cell));
-  const sdmIndex = header.findIndex((cell) => sdmNames.has(cell));
-  if (utteranceIndex < 0 || sdmIndex < 0) {
-    return {
-      error: 'The CSV needs Utterance and SDM columns. SDM must be an id or API name.',
-      rows: [],
-    };
+  if (utteranceIndex < 0) {
+    return { error: 'The CSV needs an Utterance column.', rows: [] };
   }
 
   const existingKeys = new Set(existing.map((question) => questionKey(question.text, question.semanticModel)));
@@ -115,44 +110,24 @@ export function parseQuestionCsv(text: string, existing: ExistingQuestion[]): Qu
 
   table.slice(1).forEach((cells, index) => {
     const utterance = (cells[utteranceIndex] ?? '').trim();
-    const sdmInput = (cells[sdmIndex] ?? '').trim();
-    if (!utterance && !sdmInput) return;
+    if (!utterance && cells.every((cell) => !cell.trim())) return;
 
     const line = index + 2;
-    const base = { line, utterance, sdmInput };
+    const base = { line, utterance, sdmInput: displayName, displayName };
 
     if (!utterance) {
       rows.push({ ...base, status: 'failed', reason: 'Utterance is required' });
       return;
     }
-    if (!sdmInput) {
-      rows.push({ ...base, status: 'failed', reason: 'SDM is required' });
-      return;
-    }
 
-    const resolved = resolveSemanticModel(sdmInput);
-    if (!resolved.ok) {
-      rows.push({ ...base, status: 'failed', reason: resolved.reason });
-      return;
-    }
-
-    const key = questionKey(utterance, resolved.displayName);
+    const key = questionKey(utterance, displayName);
     if (seen.has(key)) {
-      rows.push({
-        ...base,
-        status: 'duplicate',
-        displayName: resolved.displayName,
-        reason: 'Exists in questions list',
-      });
+      rows.push({ ...base, status: 'duplicate', reason: 'Exists in questions list' });
       return;
     }
 
     seen.add(key);
-    rows.push({
-      ...base,
-      status: 'ready',
-      displayName: resolved.displayName,
-    });
+    rows.push({ ...base, status: 'ready' });
   });
 
   return { rows };
