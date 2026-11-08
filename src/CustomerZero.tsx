@@ -161,6 +161,7 @@ export function CustomerZero() {
   const [reclassified, setReclassified] = useState<'accurate' | 'inaccurate' | null>(null);
   const [saving, setSaving] = useState(false);
   const [showSlack, setShowSlack] = useState(false);
+  const [slackLeaving, setSlackLeaving] = useState(false);
   const [c360Test, setC360Test] = useState<'idle' | 'running' | 'passed'>('idle');
   const [c360Progress, setC360Progress] = useState(0);
   const [verifiedIds, setVerifiedIds] = useState<string[]>([]);
@@ -184,6 +185,7 @@ export function CustomerZero() {
         setPhase('matched');
         setPage('questions');
         setShowSlack(false);
+        setSlackLeaving(false);
       }
     }, 2200);
     return () => {
@@ -213,14 +215,35 @@ export function CustomerZero() {
   }, [phase]);
 
   useEffect(() => {
-    if (page === 'verified' || page === 'model') setShowSlack(false);
+    if (page === 'verified' || page === 'model') {
+      setShowSlack(false);
+      setSlackLeaving(false);
+    }
   }, [page]);
 
   useEffect(() => {
     if (phase !== 'verified' || page !== 'questions') return;
-    const timer = window.setTimeout(() => setShowSlack(true), 5000);
+    const timer = window.setTimeout(() => {
+      setSlackLeaving(false);
+      setShowSlack(true);
+    }, 5000);
     return () => window.clearTimeout(timer);
   }, [phase, page]);
+
+  useEffect(() => {
+    if (!showSlack || slackLeaving) return;
+    const timer = window.setTimeout(() => setSlackLeaving(true), 10000);
+    return () => window.clearTimeout(timer);
+  }, [showSlack, slackLeaving]);
+
+  useEffect(() => {
+    if (!slackLeaving) return;
+    const timer = window.setTimeout(() => {
+      setShowSlack(false);
+      setSlackLeaving(false);
+    }, 320);
+    return () => window.clearTimeout(timer);
+  }, [slackLeaving]);
 
   useEffect(() => {
     if (c360Test !== 'running') return;
@@ -340,6 +363,7 @@ export function CustomerZero() {
   const retest = () => {
     if (phase !== 'verified' && phase !== 'matched') return;
     setShowSlack(false);
+    setSlackLeaving(false);
     setPhase('retesting');
     setPage('questions');
   };
@@ -487,17 +511,15 @@ export function CustomerZero() {
               setRevisionReady(false);
               setReclassified(null);
             }}
-            onBack={() => {
-              if (classifyIndex === 0) openCalibration();
-              else setClassifyIndex(classifyIndex - 1);
-            }}
+            canGoBack={classifyIndex > 0}
+            onBack={() => setClassifyIndex(classifyIndex - 1)}
             onNext={skipQuestion}
           />
         )}
       </div>
 
       {showSlack && (
-        <aside className="cz-slack" role="status">
+        <aside className={`cz-slack${slackLeaving ? ' is-leaving' : ''}`} role="status">
           <div className="cz-slack-top">
             <span className="cz-slack-app">
               <SlackMark />
@@ -931,6 +953,7 @@ function ClassificationRail({
   onPick,
   onRepick,
   onChange,
+  canGoBack,
   onBack,
   onNext,
 }: {
@@ -946,6 +969,7 @@ function ClassificationRail({
   onPick: (choice: 'accurate' | 'inaccurate') => void;
   onRepick: (choice: 'accurate' | 'inaccurate') => void;
   onChange: () => void;
+  canGoBack: boolean;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -997,7 +1021,7 @@ function ClassificationRail({
           </div>
         )}
         <div className="classification-actions">
-          <button className="btn-pill-outline" type="button" onClick={picked === 'inaccurate' ? onChange : onBack}>Back</button>
+          <button className="btn-pill-outline" type="button" disabled={picked !== 'inaccurate' && !canGoBack} onClick={picked === 'inaccurate' ? onChange : onBack}>Back</button>
           <button className="btn-pill-brand" type="button" disabled={saving} onClick={onNext}>
             {saving ? 'Saving…' : 'Next Question'}
           </button>
@@ -1027,7 +1051,7 @@ function ChoiceCards({
       <button className={`classification-option verified ${picked === 'accurate' ? 'selected' : ''}`} type="button" onClick={() => onPick('accurate')}>
         <div className="option-icon"><Shield size={16} /></div>
         <div className="option-content">
-          <div className="option-title">Accurate</div>
+          <div className="option-title">Verified</div>
           <div className="option-desc">This response is correct and will be saved as expected query for future agent responses.</div>
         </div>
         {picked === 'accurate' && <div className="option-check"><Check size={14} /></div>}
