@@ -6,6 +6,7 @@ import {
   Bell,
   Check,
   ChevronDown,
+  Close,
   ChevronRight,
   Code,
   Grid,
@@ -446,10 +447,18 @@ export function CustomerZero() {
       <header className="global-header">
         <div className="header-left">
           <div className="app-launcher" aria-hidden="true"><Grid size={16} /></div>
-          <div className="home-tab">
-            <Home size={20} />
-            <div className="home-tab-indicator" />
-          </div>
+          {page === 'semantic' ? (
+            <div className="ws-tabs">
+              <button className="ws-tab" type="button">Data</button>
+              <button className="ws-tab" type="button"><Home size={14} /> Home</button>
+              <button className="ws-tab active" type="button">Sales <Close size={12} /></button>
+            </div>
+          ) : (
+            <div className="home-tab">
+              <Home size={20} />
+              <div className="home-tab-indicator" />
+            </div>
+          )}
         </div>
         <div className="header-center" />
         <div className="header-right">
@@ -458,6 +467,7 @@ export function CustomerZero() {
             <button className="icon-button" aria-label="Notifications" type="button"><Bell size={20} /></button>
           </div>
           <div className="header-user">
+            {page === 'semantic' && <span className="ws-user-label">Personal</span>}
             <img className="avatar" src={`${import.meta.env.BASE_URL}avatars/header-avatar.svg`} alt="" />
             <ChevronDown size={12} className="avatar-chevron" />
           </div>
@@ -1356,27 +1366,18 @@ function C360ModelPage({
 
 function SalesModel({ onOpenQa }: { onOpenQa: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const objects = [
-    ['Account', 17],
-    ['Account Contact', 31],
-    ['Case', 27],
-    ['ForecastingQuota', 19],
-    ['Goods Product', 14],
-    ['Lead', 39],
-    ['Master Product', 19],
-    ['Opportunity', 34],
-    ['Opportunity Product', 16],
-    ['Period_Home', 15],
-    ['User', 15],
-  ] as const;
   return (
     <div className="sm">
       <div className="sm-titlebar">
-        <h1>Sales</h1>
+        <div>
+          <button className="sm-crumb" type="button">Marketing <ChevronDown size={12} /></button>
+          <h1>Sales</h1>
+        </div>
         <div className="sm-title-actions">
+          <span className="sm-unsaved">Unsaved Changes</span>
+          <button className="btn btn-outlined" type="button">Create Visualization</button>
           <button className="btn btn-outlined" type="button">Share</button>
-          <button className="btn btn-outlined" type="button">Tableau Agent <ChevronDown size={12} /></button>
-          <button className="btn" type="button">Create Visualization</button>
+          <button className="btn btn-brand" type="button">Save <ChevronDown size={12} /></button>
         </div>
       </div>
       <div className="sm-tabs">
@@ -1406,41 +1407,69 @@ function SalesModel({ onOpenQa }: { onOpenQa: () => void }) {
       </div>
       <div className="sm-body">
         <aside className="sm-tree">
-          <div className="sm-tree-head">
-            <strong>Model</strong>
-            <span>New</span>
-          </div>
           <div className="sm-tree-switch">
-            <button type="button" className="active">Objects</button>
-            <button type="button">Model Filters</button>
+            <button type="button" className="active">Data</button>
+            <button type="button">Filter</button>
+            <button type="button">Actions</button>
           </div>
-          <label className="sm-search">
-            <Search size={14} />
-            <input aria-label="Search the model" placeholder="Search" />
-          </label>
-          <div className="sm-group">Metrics (8)</div>
-          <div className="sm-group">Calculated Fields (3)</div>
-          <div className="sm-group open">Data Objects (11)</div>
+          <div className="sm-search-row">
+            <label className="sm-search">
+              <Search size={14} />
+              <input aria-label="Search the model" placeholder="Search..." />
+            </label>
+            <button className="sm-icon" type="button" aria-label="Filter fields"><FilterIcon size={14} /></button>
+            <button className="sm-icon" type="button" aria-label="Add"><Plus size={14} /></button>
+          </div>
+          <div className="sm-group open">Calculated Fields (2)</div>
           <ul>
-            {objects.map(([name, count]) => (
-              <li key={name}><i />{name} <span>({count})</span></li>
-            ))}
+            <li><ProductSizeIcon />Product Size Category</li>
+            <li><SalesByRegionIcon />Sales by region</li>
+          </ul>
+          <div className="sm-group">Parameters (1)</div>
+          <div className="sm-group">Dimension Hierarchies (1)</div>
+          <div className="sm-group open">Data Objects (8)</div>
+          <ul>
+            <li><ChevronRight size={12} /> <PinkObjectIcon /> Account <span>(6)</span></li>
+            <li><ChevronRight size={12} /> <PinkObjectIcon /> Email Engagement <span>(8)</span></li>
+            <li className="open">
+              <ChevronDown size={12} /> <PinkObjectIcon /> Campaign <span>(6)</span>
+              <ul>
+                <li>campaign_ID</li>
+                <li>
+                  <ChevronDown size={12} /> Geo
+                  <ul>
+                    <li>country</li>
+                    <li>region</li>
+                    <li>city</li>
+                    <li>geo</li>
+                  </ul>
+                </li>
+                <li>currency</li>
+              </ul>
+            </li>
           </ul>
         </aside>
         <div className="sm-canvas">
+          <div className="sm-float-tools" aria-label="Canvas tools">
+            <button type="button" aria-label="Add">+</button>
+            <button type="button" aria-label="Undo">↶</button>
+            <button type="button" aria-label="Redo">↷</button>
+            <button type="button" aria-label="Fit">⤢</button>
+            <button type="button" aria-label="Zoom">⌕</button>
+          </div>
           <div className="sm-diagram">
             <svg className="sm-lines" viewBox="0 0 1000 460" aria-hidden="true">
-              <path d="M118 80H190V380H118M190 220H250M310 220H820M660 240V360H820" />
+              <path d="M128 78H190V368H128M190 214H248M312 214H808M640 236V350H808" />
             </svg>
-            <ModelNode icon="person" label="Email Engagement" left="8%" top="17%" />
-            <ModelNode icon="person" label="Message Engagement" left="8%" top="48%" />
-            <ModelNode icon="person" tone="purple" label="Email Conversion" left="8%" top="83%" />
-            <ModelNode icon="link" label="Campaign" left="28%" top="48%" />
-            <ModelNode icon="link" label="Product" left="46%" top="48%" />
-            <ModelNode icon="recycle" tone="purple" label="Transactions" left="66%" top="48%" />
-            <ModelNode icon="link" label="Stores" left="84%" top="48%" />
-            <ModelNode icon="link" label="Website" left="84%" top="78%" />
-            <ModelNode icon="grid" tone="orange" label="Dates" left="96%" top="62%" />
+            <ModelNode icon="object" label="Email Engagement" left="9%" top="17%" />
+            <ModelNode icon="object" label="Message Engagement" left="9%" top="46%" />
+            <ModelNode icon="person" tone="purple" label="Email Conversion" left="9%" top="80%" />
+            <ModelNode icon="object" label="Campaign" left="28%" top="46%" />
+            <ModelNode icon="object" label="Product" left="45%" top="46%" />
+            <ModelNode icon="recycle" tone="purple" label="Transactions" left="64%" top="46%" />
+            <ModelNode icon="object" label="Stores" left="83%" top="46%" />
+            <ModelNode icon="object" label="Website" left="83%" top="76%" />
+            <ModelNode icon="grid" tone="orange" label="Dates" left="96%" top="60%" />
           </div>
         </div>
       </div>
@@ -1455,7 +1484,7 @@ function ModelNode({
   left,
   top,
 }: {
-  icon: 'person' | 'link' | 'recycle' | 'grid';
+  icon: 'person' | 'object' | 'recycle' | 'grid';
   tone?: 'pink' | 'purple' | 'orange';
   label: string;
   left: string;
@@ -1465,7 +1494,7 @@ function ModelNode({
     <span className="sm-obj" style={{ left, top }}>
       <span className={`sm-orb ${tone}`}>
         {icon === 'person' && <PersonGlyph />}
-        {icon === 'link' && <LinkGlyph />}
+        {icon === 'object' && <ObjectGlyph />}
         {icon === 'recycle' && <RecycleGlyph />}
         {icon === 'grid' && <GridGlyph />}
       </span>
@@ -1476,39 +1505,75 @@ function ModelNode({
 
 function PersonGlyph() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <circle cx="8" cy="5" r="2.1" fill="#fff" />
-      <path d="M3.4 13.2c.7-2.5 2.4-3.7 4.6-3.7s3.9 1.2 4.6 3.7" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="20" viewBox="0 0 29 27" fill="none" aria-hidden="true">
+      <path d="M25.44 15.312V15.12C25.44 10.8 22.896 7.056 19.248 5.232V4.8C19.248 2.16 17.088 0 14.448 0C11.808 0 9.648 2.16 9.648 4.8V5.232C7.79546 6.13747 6.23354 7.54366 5.13916 9.29126C4.04479 11.0389 3.46172 13.058 3.456 15.12V15.312C2.78106 15.5089 2.1576 15.8516 1.6297 16.3159C1.10181 16.7803 0.682366 17.355 0.401036 17.9993C0.119705 18.6436 -0.0166467 19.3419 0.00162061 20.0447C0.0198879 20.7475 0.192329 21.4378 0.50675 22.0666C0.821172 22.6955 1.2699 23.2476 1.8212 23.6839C2.37251 24.1202 3.01293 24.4301 3.69719 24.5916C4.38145 24.7531 5.09284 24.7624 5.78106 24.6187C6.46929 24.475 7.11755 24.1818 7.68 23.76C9.59065 25.2786 11.9593 26.1053 14.4 26.1053C16.8407 26.1053 19.2094 25.2786 21.12 23.76C21.8331 24.2949 22.6811 24.6206 23.5689 24.7006C24.4568 24.7807 25.3493 24.6119 26.1466 24.2133C26.9439 23.8146 27.6145 23.2018 28.0831 22.4435C28.5518 21.6852 28.8 20.8114 28.8 19.92C28.896 17.76 27.456 15.888 25.44 15.312ZM9.168 22.08C9.50028 21.4122 9.67236 20.6762 9.67059 19.9303C9.66883 19.1845 9.49327 18.4493 9.15785 17.7831C8.82242 17.1169 8.33635 16.538 7.73821 16.0924C7.14008 15.6468 6.44633 15.3467 5.712 15.216V15.12C5.712 11.76 7.632 8.832 10.416 7.344C10.8548 8.02771 11.4584 8.59018 12.1713 8.97975C12.8842 9.36931 13.6836 9.57347 14.496 9.57347C15.3084 9.57347 16.1078 9.36931 16.8207 8.97975C17.5336 8.59018 18.1372 8.02771 18.576 7.344C21.36 8.832 23.28 11.76 23.28 15.12V15.216C22.5457 15.3467 21.8519 15.6468 21.2538 16.0924C20.6556 16.538 20.1696 17.1169 19.8342 17.7831C19.4987 18.4493 19.3232 19.1845 19.3214 19.9303C19.3196 20.6762 19.4917 21.4122 19.824 22.08C18.3034 23.2711 16.4276 23.9184 14.496 23.9184C12.5644 23.9184 10.6886 23.2711 9.168 22.08Z" fill="white" />
     </svg>
   );
 }
 
-function LinkGlyph() {
+function ProductSizeIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <circle cx="8" cy="8.5" r="1.5" fill="#fff" />
-      <circle cx="4" cy="4" r="1.35" fill="#fff" />
-      <circle cx="12" cy="4" r="1.35" fill="#fff" />
-      <circle cx="8" cy="13" r="1.35" fill="#fff" />
-      <path d="M5.1 5 6.8 7.2M10.9 5 9.2 7.2M8 10v1.6" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M11.5309 9.1642L9.11953 3.18679C9.08557 3.06793 8.98368 3 8.86481 3H8.10065C7.98178 3 7.86292 3.08491 7.82895 3.18679L5.62139 9.1642C5.57045 9.28306 5.65535 9.41891 5.77422 9.41891H6.62328C6.74215 9.41891 6.86102 9.31703 6.89498 9.19816L7.45537 7.63588H9.62897L10.2573 9.19816C10.2912 9.31703 10.4101 9.41891 10.529 9.41891H11.3611C11.4969 9.41891 11.5988 9.28306 11.5309 9.1642ZM7.89688 6.46419L8.52519 4.83399L9.22142 6.46419H7.89688Z" fillRule="evenodd" clipRule="evenodd" fill="#0176D3" />
+      <path d="M15.3959 12.4469C15.3446 11.7454 15.3275 11.0267 15.3275 10.3252L15.3446 9.26433C15.3446 9.20512 15.3457 9.14591 15.3468 9.0868C15.3519 8.82137 15.357 8.55803 15.259 8.30614C14.9852 7.6046 14.0613 7.46771 13.394 7.46771C12.8023 7.47767 12.2194 7.61175 11.6829 7.86126L11.9053 8.4088C11.953 8.5042 11.9712 8.61438 11.9872 8.71188L11.9909 8.7339C12.4358 8.52857 12.8806 8.4088 13.3255 8.4088C14.027 8.4088 14.3693 8.68257 14.3693 9.23011V9.48677L13.8731 9.46966C12.9833 9.46966 12.316 9.60655 11.8369 9.86321C11.3749 10.137 11.1353 10.599 11.1353 11.2663C11.1353 11.7625 11.2893 12.156 11.5973 12.4298C11.9053 12.7036 12.2989 12.8405 12.7609 12.8405C13.1715 12.8405 13.5137 12.7891 13.7704 12.6694C14.027 12.5496 14.2495 12.3785 14.4206 12.1389H14.4548L14.5404 12.7207H15.3959V12.4469ZM14.3864 10.7187C14.3864 10.8385 14.3693 10.9583 14.3179 11.0781C14.2837 11.1636 14.2495 11.2492 14.181 11.3347C13.9536 11.6132 13.63 11.7964 13.2742 11.848C13.0517 11.8823 12.8464 11.8652 12.624 11.8309C12.4529 11.7967 12.2818 11.7112 12.1962 11.5572C12.0422 11.3176 12.0764 10.9412 12.2475 10.7187C12.3502 10.5819 12.5042 10.4963 12.6582 10.445C13.086 10.3081 13.5822 10.3081 14.0099 10.3081L14.3864 10.3252V10.7187Z" fillRule="evenodd" clipRule="evenodd" fill="#0176D3" />
+      <path d="M1.23252 6.06882H4.39722C4.5255 6.06882 4.62949 6.17281 4.62949 6.30109L4.62949 7.04629C4.62949 7.17457 4.5255 7.27857 4.39722 7.27857H1.23252C1.10424 7.27857 1.00024 7.17457 1.00024 7.04629V6.30109C1.00024 6.17281 1.10424 6.06882 1.23252 6.06882Z" fill="#0176D3" />
+      <path d="M1.23252 8.73994H4.39722C4.5255 8.73994 4.62949 8.84393 4.62949 8.97221L4.62949 9.71742C4.62949 9.8457 4.5255 9.94969 4.39722 9.94969H1.23252C1.10424 9.94969 1.00024 9.8457 1.00024 9.71742V8.97221C1.00024 8.84393 1.10424 8.73994 1.23252 8.73994Z" fill="#0176D3" />
+    </svg>
+  );
+}
+
+function SalesByRegionIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="11" viewBox="0 0 15 11" fill="none" aria-hidden="true">
+      <path d="M12.8694 2.45473H14.2255C14.3114 2.45473 14.3972 2.52339 14.3972 2.54056V2.57489L14.1225 3.60485C14.1054 3.69068 14.0367 3.74217 13.9509 3.74217H12.5089L11.8395 6.3514H13.2471C13.3501 6.3514 13.4187 6.43723 13.4187 6.52306V6.55739L13.1441 7.58734C13.1269 7.67317 13.0583 7.72467 12.9724 7.72467H11.479L10.8782 10.0764C10.861 10.1622 10.7924 10.2137 10.7065 10.2137H9.62507C9.52207 10.2137 9.45341 10.1279 9.45341 10.0421V10.0077L10.0371 7.74184H7.342L6.74119 10.0936C6.72403 10.1794 6.65536 10.2309 6.56953 10.2309H5.48808C5.38508 10.2309 5.31642 10.1451 5.31642 10.0592V10.0249L5.90006 7.759H4.76874C4.66574 7.759 4.59708 7.67317 4.59708 7.58734V7.55301L4.87173 6.52306C4.90606 6.45439 4.95756 6.40289 5.04339 6.40289H6.26054L6.93002 3.79367H5.74719C5.6442 3.79367 5.57553 3.70784 5.57553 3.62201V3.58768L5.85019 2.55772C5.88452 2.48906 5.93602 2.43756 6.02185 2.43756H7.2905L7.89131 0.137327C7.90847 0.0686637 7.97714 0 8.06297 0H9.14442C9.24742 0 9.31608 0.0858297 9.31608 0.171659V0.223157L8.73244 2.45473H11.4447L12.0283 0.137327C12.0455 0.0686637 12.1141 0 12.2 0H13.2814C13.3844 0 13.4531 0.0858297 13.4531 0.171659V0.223157L12.8694 2.45473ZM7.70248 6.43722H10.4147L11.067 3.828H8.37195L7.70248 6.43722Z" fillRule="evenodd" clipRule="evenodd" fill="#2E844A" />
+      <path d="M0.232272 3.26404H3.39698C3.52526 3.26404 3.62925 3.36803 3.62925 3.49631L3.62925 4.24152C3.62925 4.3698 3.52526 4.47379 3.39698 4.47379H0.232272C0.103992 4.47379 0 4.3698 0 4.24152V3.49631C0 3.36803 0.103992 3.26404 0.232272 3.26404Z" fill="#2E844A" />
+      <path d="M0.232272 5.93516H3.39698C3.52526 5.93516 3.62925 6.03916 3.62925 6.16744L3.62925 6.91264C3.62925 7.04092 3.52526 7.14491 3.39698 7.14491H0.232272C0.103992 7.14491 0 7.04092 0 6.91264V6.16744C0 6.03916 0.103992 5.93516 0.232272 5.93516Z" fill="#2E844A" />
+    </svg>
+  );
+}
+
+function PinkObjectIcon() {
+  return (
+    <span className="sm-obj-badge" aria-hidden="true">
+      <ObjectGlyph size={10} />
+    </span>
+  );
+}
+
+function ObjectGlyph({ size = 22 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 29 29" fill="none" aria-hidden="true">
+      <path d="M25.008 21.84C24.4718 21.8359 23.9432 21.9681 23.472 22.224L19.248 19.104C19.6348 18.3293 19.8322 17.4739 19.824 16.608C19.8223 15.3451 19.4022 14.1183 18.6292 13.1196C17.8563 12.1208 16.7741 11.4064 15.552 11.088V6.288C16.1174 6.01993 16.5967 5.5993 16.9359 5.0735C17.2752 4.54771 17.4608 3.93763 17.472 3.312C17.472 2.87706 17.3863 2.44638 17.2199 2.04455C17.0534 1.64272 16.8095 1.27761 16.5019 0.970062C16.1944 0.662514 15.8293 0.418554 15.4274 0.252111C15.0256 0.085667 14.5949 0 14.16 0C13.7251 0 13.2944 0.085667 12.8926 0.252111C12.4907 0.418554 12.1256 0.662514 11.8181 0.970062C11.5105 1.27761 11.2666 1.64272 11.1001 2.04455C10.9337 2.44638 10.848 2.87706 10.848 3.312C10.8416 3.94153 11.0201 4.55909 11.3614 5.0881C11.7027 5.61712 12.1918 6.03433 12.768 6.288V11.088C11.5459 11.4064 10.4637 12.1208 9.69077 13.1196C8.91782 14.1183 8.49766 15.3451 8.496 16.608C8.48781 17.4739 8.68522 18.3293 9.072 19.104L4.848 22.224C4.37261 21.9789 3.84682 21.8474 3.312 21.84C2.65695 21.84 2.01661 22.0342 1.47195 22.3982C0.927297 22.7621 0.50279 23.2794 0.252113 23.8846C0.00143507 24.4897 -0.0641536 25.1557 0.0636406 25.7981C0.191435 26.4406 0.506872 27.0307 0.970063 27.4939C1.43325 27.9571 2.0234 28.2726 2.66586 28.4004C3.30833 28.5282 3.97426 28.4626 4.57945 28.2119C5.18464 27.9612 5.7019 27.5367 6.06583 26.992C6.42976 26.4474 6.624 25.8071 6.624 25.152L6.576 24.528L10.992 21.264C11.9416 21.9511 13.0839 22.321 14.256 22.321C15.4281 22.321 16.5704 21.9511 17.52 21.264L21.936 24.528C21.8962 24.7335 21.8801 24.9428 21.888 25.152C21.888 26.0304 22.2369 26.8728 22.8581 27.4939C23.4792 28.1151 24.3216 28.464 25.2 28.464C26.0784 28.464 26.9208 28.1151 27.5419 27.4939C28.1631 26.8728 28.512 26.0304 28.512 25.152C28.4517 24.2604 28.0575 23.4243 27.408 22.8104C26.7586 22.1965 25.9016 21.85 25.008 21.84ZM14.784 19.392C14.5639 19.4473 14.3387 19.4794 14.112 19.488C13.4909 19.4718 12.891 19.2584 12.3991 18.8788C11.9073 18.4991 11.549 17.9728 11.376 17.376C11.3204 17.1397 11.2883 16.8986 11.28 16.656C11.2782 16.1563 11.411 15.6653 11.6644 15.2346C11.9177 14.8038 12.2824 14.4492 12.72 14.208C13.1578 13.9552 13.6545 13.8222 14.16 13.8222C14.6655 13.8222 15.1622 13.9552 15.6 14.208C16.0376 14.4492 16.4023 14.8038 16.6556 15.2346C16.909 15.6653 17.0418 16.1563 17.04 16.656C17.0317 16.8986 16.9996 17.1397 16.944 17.376C16.7786 17.8643 16.4947 18.3041 16.1178 18.6559C15.7408 19.0077 15.2826 19.2606 14.784 19.392Z" fill="white" />
     </svg>
   );
 }
 
 function RecycleGlyph() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M8 2.8 9.2 4.6H6.8L8 2.8ZM3.6 8.2l1.6-1.8 1.1 2.1-2.7-.3ZM12.4 8.2l-1.6-.3 1.1-2.1 1.6 1.8Z" fill="#fff" />
-      <path d="M5.2 6.2A3.1 3.1 0 0 1 10.6 5M10.8 9.8A3.1 3.1 0 0 1 5.4 11" fill="none" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" />
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M10.2 3.2 12.4 6H8.6L10.2 3.2Zm-5.4 5.6 2.4-1.3.5 2.6-2.9-.3Zm7.6 1.3 2.9-.3-.5-2.6 2.4 1.3-4.8 1.6Z" fill="#fff" />
+      <path d="M7.1 8.2a3.6 3.6 0 0 1 5.6-1.5M13.2 12.2a3.6 3.6 0 0 1-5.6 1.4" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12.2 5.4 12.6 7.2 10.8 6.6M7.4 14.6 7.8 12.8 9.6 13.4" fill="none" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function GridGlyph() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <rect x="3" y="3" width="10" height="10" rx="1" fill="none" stroke="#fff" strokeWidth="1.3" />
-      <path d="M3 6.5h10M3 9.5h10M6.5 3v10M9.5 3v10" stroke="#fff" strokeWidth="1.1" />
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="22" viewBox="0 0 27 29" fill="none" aria-hidden="true">
+      <path d="M6.336 7.2H0.864C0.386826 7.2 0 7.58682 0 8.064V9.936C0 10.4132 0.386826 10.8 0.864 10.8H6.336C6.81317 10.8 7.2 10.4132 7.2 9.936V8.064C7.2 7.58682 6.81317 7.2 6.336 7.2Z" fill="white" />
+      <path d="M15.888 25.2H10.416C9.93883 25.2 9.552 25.5868 9.552 26.064V27.936C9.552 28.4132 9.93883 28.8 10.416 28.8H15.888C16.3652 28.8 16.752 28.4132 16.752 27.936V26.064C16.752 25.5868 16.3652 25.2 15.888 25.2Z" fill="white" />
+      <path d="M6.336 13.248H0.864C0.386826 13.248 0 13.6348 0 14.112V15.984C0 16.4612 0.386826 16.848 0.864 16.848H6.336C6.81317 16.848 7.2 16.4612 7.2 15.984V14.112C7.2 13.6348 6.81317 13.248 6.336 13.248Z" fill="white" />
+      <path d="M6.336 25.2H0.864C0.386826 25.2 0 25.5868 0 26.064V27.936C0 28.4132 0.386826 28.8 0.864 28.8H6.336C6.81317 28.8 7.2 28.4132 7.2 27.936V26.064C7.2 25.5868 6.81317 25.2 6.336 25.2Z" fill="white" />
+      <path d="M25.488 0H0.864C0.386826 0 0 0.386826 0 0.864V3.888C0 4.36517 0.386826 4.752 0.864 4.752H25.488C25.9652 4.752 26.352 4.36517 26.352 3.888V0.864C26.352 0.386826 25.9652 0 25.488 0Z" fill="white" />
+      <path d="M6.336 19.152H0.864C0.386826 19.152 0 19.5388 0 20.016V21.888C0 22.3652 0.386826 22.752 0.864 22.752H6.336C6.81317 22.752 7.2 22.3652 7.2 21.888V20.016C7.2 19.5388 6.81317 19.152 6.336 19.152Z" fill="white" />
+      <path d="M15.888 19.152H10.416C9.93883 19.152 9.552 19.5388 9.552 20.016V21.888C9.552 22.3652 9.93883 22.752 10.416 22.752H15.888C16.3652 22.752 16.752 22.3652 16.752 21.888V20.016C16.752 19.5388 16.3652 19.152 15.888 19.152Z" fill="white" />
+      <path d="M15.888 13.248H10.416C9.93883 13.248 9.552 13.6348 9.552 14.112V15.984C9.552 16.4612 9.93883 16.848 10.416 16.848H15.888C16.3652 16.848 16.752 16.4612 16.752 15.984V14.112C16.752 13.6348 16.3652 13.248 15.888 13.248Z" fill="white" />
+      <path d="M25.536 13.248H20.064C19.5868 13.248 19.2 13.6348 19.2 14.112V15.984C19.2 16.4612 19.5868 16.848 20.064 16.848H25.536C26.0132 16.848 26.4 16.4612 26.4 15.984V14.112C26.4 13.6348 26.0132 13.248 25.536 13.248Z" fill="white" />
+      <path d="M25.536 7.2H20.064C19.5868 7.2 19.2 7.58682 19.2 8.064V9.936C19.2 10.4132 19.5868 10.8 20.064 10.8H25.536C26.0132 10.8 26.4 10.4132 26.4 9.936V8.064C26.4 7.58682 26.0132 7.2 25.536 7.2Z" fill="white" />
+      <path d="M25.536 19.152H20.064C19.5868 19.152 19.2 19.5388 19.2 20.016V21.888C19.2 22.3652 19.5868 22.752 20.064 22.752H25.536C26.0132 22.752 26.4 22.3652 26.4 21.888V20.016C26.4 19.5388 26.0132 19.152 25.536 19.152Z" fill="white" />
+      <path d="M25.536 25.2H20.064C19.5868 25.2 19.2 25.5868 19.2 26.064V27.936C19.2 28.4132 19.5868 28.8 20.064 28.8H25.536C26.0132 28.8 26.4 28.4132 26.4 27.936V26.064C26.4 25.5868 26.0132 25.2 25.536 25.2Z" fill="white" />
+      <path d="M15.888 7.2H10.416C9.93883 7.2 9.552 7.58682 9.552 8.064V9.936C9.552 10.4132 9.93883 10.8 10.416 10.8H15.888C16.3652 10.8 16.752 10.4132 16.752 9.936V8.064C16.752 7.58682 16.3652 7.2 15.888 7.2Z" fill="white" />
     </svg>
   );
 }
