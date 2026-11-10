@@ -121,6 +121,31 @@ const SECOND_QUESTIONS: { text: string; finding: 'clear' | 'missing' }[] = [
   { text: 'Which lead sources are generating the highest number of converted leads this quarter?', finding: 'clear' },
 ];
 
+const GENERATED_QUESTIONS: { text: string; up: number; down: number }[] = [
+  { text: 'Show me total orders by month', up: 31, down: 12 },
+  { text: 'Compare lead conversion rate in the prior month for different sources, when responding to pipeline questions', up: 1, down: 0 },
+  { text: 'Show me the total sales amount and opportunity type for closed won deals', up: 22, down: 2 },
+  { text: 'How does the average deal size of opportunities for new business compare to existing?', up: 7, down: 18 },
+  { text: 'How does the average deal size of opportunities for new business compare to existing?', up: 0, down: 0 },
+  { text: 'Compare the average deal size for each lead source.', up: 11, down: 1 },
+  { text: "What's the total opportunity amount by opportunity stage for this quarter", up: 18, down: 3 },
+  { text: "What's the total opportunity amount by opportunity stage for this quarter", up: 16, down: 0 },
+  { text: 'Which lead sources are generating the highest number of converted leads this quarter?', up: 41, down: 0 },
+  { text: 'Which account types have the lowest lead conversion rates?', up: 19, down: 6 },
+  { text: 'Total opportunity amount between aug 1 2024 and dec 1 2024, by closed date and stage', up: 0, down: 0 },
+  { text: "What's the total opportunity amount by opportunity stage for this quarter", up: 71, down: 1 },
+  { text: 'Are there any significant differences in the average sales cycle length for new business versus existing business?', up: 0, down: 0 },
+  { text: 'What is the average deal size for opportunities won in key accounts this quarter?', up: 0, down: 0 },
+  { text: 'Whats the Average Deal Size this Quarter?', up: 0, down: 0 },
+  { text: 'What is the average NPS score of all customers that have critical tickets and open pipelines?', up: 4, down: 1 },
+  { text: 'What is our average days to close?', up: 8, down: 2 },
+  { text: 'List unconverted leads grouped by rating level and acquisition channel', up: 3, down: 0 },
+  { text: 'Show me pipeline coverage by sales team for the current quarter', up: 12, down: 1 },
+  { text: 'How many opportunities moved to closed won this month?', up: 9, down: 0 },
+  { text: 'Which products have the highest discount rate on closed won deals?', up: 2, down: 4 },
+  { text: 'Compare win rate by lead source for the last two quarters', up: 6, down: 1 },
+];
+
 const QUESTION_CATALOG: { text: string; up: number; down: number; verified: boolean }[] = [
   { text: 'Show me total orders by month', up: 31, down: 12, verified: true },
   { text: 'Compare lead conversion rate in the prior month for different sources, when responding to pipeline questions', up: 1, down: 0, verified: true },
@@ -193,7 +218,7 @@ const CALIBRATIONS = [
 ];
 
 export function CustomerZero() {
-  const [page, setPage] = useState<Page>('semantic');
+  const [page, setPage] = useState<Page>('questions');
   const [phase, setPhase] = useState<Phase>('empty');
   const [model, setModel] = useState('Sales');
   const [queryCount, setQueryCount] = useState('');
@@ -351,8 +376,10 @@ export function CustomerZero() {
     setPage(phase === 'classify' ? 'classify' : 'verified');
   };
 
-  const generate = () => {
-    if (!model || !queryCount || phase !== 'empty') return;
+  const generate = (nextModel = model, nextCount = queryCount) => {
+    if (!nextModel || phase !== 'empty') return;
+    setModel(nextModel);
+    setQueryCount(nextCount || '2');
     setPhase('generating');
   };
 
@@ -499,7 +526,7 @@ export function CustomerZero() {
                 <button className={`nav-item ${page === 'classify' ? 'active' : ''}`} type="button" onClick={openVerified}>Verified Queries</button>
                 <button className={`nav-item cz-nav-calibration ${page === 'calibration' ? 'active' : ''}`} type="button" onClick={() => { setCalibrationDetail(false); openCalibration(); }} disabled={!generated}>
                   Model Calibration
-                  {calibrationDot && <span className="cz-nav-dot" aria-hidden="true" />}
+                  {generated && <span className="cz-nav-dot" aria-hidden="true" />}
                 </button>
                 <button className="nav-item" type="button">Tests</button>
               </>
@@ -518,8 +545,6 @@ export function CustomerZero() {
               suggestionCount={suggestionCount}
               verified={bothVerified}
               matched={phase === 'matched'}
-              onModel={setModel}
-              onQueryCount={setQueryCount}
               onGenerate={generate}
               onReview={() => { setCalibrationDetail(false); openCalibration(); }}
               onRetest={retest}
@@ -547,6 +572,7 @@ export function CustomerZero() {
               score={calibrationDot ? 60 : null}
               followUp={calibrationDot}
               model={model}
+              onBack={() => setCalibrationDetail(false)}
               termDrafts={termDrafts}
               savedTerms={savedTerms}
               openTerm={openTerm}
@@ -657,8 +683,6 @@ function QuestionsPage({
   suggestionCount,
   verified,
   matched,
-  onModel,
-  onQueryCount,
   onGenerate,
   onReview,
   onRetest,
@@ -673,9 +697,7 @@ function QuestionsPage({
   suggestionCount: number;
   verified: boolean;
   matched: boolean;
-  onModel: (value: string) => void;
-  onQueryCount: (value: string) => void;
-  onGenerate: () => void;
+  onGenerate: (nextModel?: string, nextCount?: string) => void;
   onReview: () => void;
   onRetest: () => void;
   onOpen: () => void;
@@ -683,19 +705,59 @@ function QuestionsPage({
 }) {
   const showList = phase !== 'empty' && phase !== 'generating';
   const busy = phase === 'generating' || phase === 'retesting';
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualText, setManualText] = useState('');
+  const [semanticOpen, setSemanticOpen] = useState(false);
+  const [draftModel, setDraftModel] = useState('');
+  const [draftCount, setDraftCount] = useState('');
+  const openSemantic = () => {
+    setMenuOpen(false);
+    setDraftModel('');
+    setDraftCount('');
+    setSemanticOpen(true);
+  };
+  const closeSemantic = () => setSemanticOpen(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const openManual = () => {
+    setMenuOpen(false);
+    setManualOpen(true);
+  };
+  const uploadCsv = () => {
+    setMenuOpen(false);
+    fileRef.current?.click();
+  };
   return (
     <div className="cz-page">
       <div className="cz-title-row">
         <h1>All Questions</h1>
-        {expanded ? (
-          <button className="btn btn-outlined" type="button">Add Question <ChevronDown size={12} /></button>
+        {expanded || phase === 'empty' || phase === 'generating' || (showList && !verified) ? (
+          <div className="cz-add-split">
+            <button className="cz-add-main" type="button" onClick={openManual}>Add Question</button>
+            <button className="cz-add-more" type="button" aria-label="More ways to add questions" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
+              <ChevronDown size={12} />
+            </button>
+            {menuOpen && (
+              <div className="cz-add-menu" role="menu">
+                <button type="button" role="menuitem" onClick={openSemantic}>Semantic model</button>
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onGenerate(); }}>Slack Conversations</button>
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onGenerate(); }}>Tableau Dashboard</button>
+                <button type="button" role="menuitem" onClick={openManual}>Add Manually</button>
+                <button type="button" role="menuitem" onClick={uploadCsv}>Upload CSV</button>
+              </div>
+            )}
+          </div>
         ) : (
           <button className="btn btn-outlined" type="button" onClick={onRetest} disabled={!verified && phase !== 'matched'}>
             Retest <ChevronDown size={12} />
           </button>
         )}
       </div>
-      {!expanded && <div className="cz-metrics">
+      {phase === 'generating' ? (
+        <GeneratingRun progress={progress} />
+      ) : (
+      <>
+      {!expanded && phase !== 'empty' && <div className="cz-metrics">
         <Metric label="Questions for review" value={reviewCount} />
         <Metric label="Regression" value={0} />
         <Metric label="VQs" value={verified ? QUESTIONS.length : 0} tone={verified ? 'good' : undefined} />
@@ -703,7 +765,7 @@ function QuestionsPage({
       </div>}
       {busy && (
         <ProgressBanner
-          label={phase === 'retesting' ? 'Running batch regression' : `Generating ${queryCount || ''} questions from model`}
+          label="Running batch regression"
           progress={progress}
         />
       )}
@@ -719,15 +781,15 @@ function QuestionsPage({
       )}
       <section className="cz-card">
         <div className="cz-toolbar">
-          <span>{expanded ? `${QUESTION_CATALOG.length} questions` : showList ? `${QUESTIONS.length} questions` : '0 questions'}</span>
+          <span>{expanded ? `${QUESTION_CATALOG.length} questions` : verified ? `${QUESTIONS.length} questions` : showList ? `${GENERATED_QUESTIONS.length} questions` : '0 questions'}</span>
           <div className="cz-tools">
             <span className="cz-fake-select">Any classification <ChevronDown size={12} /></span>
-            <span className="cz-fake-select">{expanded ? 'Sales' : 'Any model'} <ChevronDown size={12} /></span>
+            <span className="cz-fake-select">{expanded || (showList && !verified) ? 'Sales' : 'Any model'} <ChevronDown size={12} /></span>
             <label className="cz-search">
               <Search size={14} />
               <input aria-label="Search questions" placeholder="Search..." />
             </label>
-            {expanded ? (
+            {expanded || phase === 'empty' ? (
               <button className="icon-btn-bordered" type="button" aria-label="Refresh"><RefreshIcon /></button>
             ) : verified && (
               <>
@@ -739,32 +801,33 @@ function QuestionsPage({
         </div>
         {!showList ? (
           <div className="cz-empty">
-            <EmptyArt />
-            <h2>No Question Available</h2>
-            <p>You currently have no questions. Select a semantic model in order to generate questions.</p>
-            <div className="cz-generate-row">
-              <label className="cz-model">
-                <span className="cz-sr">Semantic model</span>
-                <select value={model} onChange={(event) => onModel(event.target.value)} aria-label="Semantic model">
-                  <option value="">Select a model</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="C360">C360</option>
-                </select>
-              </label>
-              <label className="cz-model cz-count">
-                <span className="cz-sr">Number of questions</span>
-                <select value={queryCount} onChange={(event) => onQueryCount(event.target.value)} aria-label="Number of questions">
-                  <option value="">Number of questions</option>
-                  <option value="2">2</option>
-                  <option value="5">5</option>
-                  <option value="10">10</option>
-                </select>
-              </label>
-            </div>
-            <button className="btn btn-brand" type="button" disabled={!model || !queryCount || phase === 'generating'} onClick={onGenerate}>
-              Generate
-            </button>
+            <LakeArt />
+            <h2><strong>Welcome!</strong><br />Start by collecting you organization business questions</h2>
+            <p>Choose how you’d like to add questions to Q&amp;A calibration</p>
+            <section className="cz-add-card cz-add-card-generate">
+              <h3>Generate Questions</h3>
+              <p>Have questions generated for you. Choose a source type for grounding</p>
+              <div className="cz-add-card-rule" />
+              <div className="cz-add-card-actions">
+                <button type="button" disabled={phase === 'generating'} onClick={openSemantic}><SourceIcon /> Semantic model</button>
+                <button type="button" disabled={phase === 'generating'} onClick={() => onGenerate()}><SlackIcon /> Slack Conversations</button>
+                <button type="button" disabled={phase === 'generating'} onClick={() => onGenerate()}><DashboardIcon /> Tableau Dashboard</button>
+              </div>
+            </section>
+            <section className="cz-add-card">
+              <h3>More ways to add questions</h3>
+              <div className="cz-add-card-actions">
+                <button type="button" onClick={openManual}><PencilIcon /> Add Manually</button>
+                <button type="button" onClick={uploadCsv}><UploadIcon /> Upload CSV</button>
+              </div>
+              {manualOpen && (
+                <form className="cz-manual" onSubmit={(event) => { event.preventDefault(); if (manualText.trim()) onGenerate(); }}>
+                  <input aria-label="Question" placeholder="Write a question" value={manualText} onChange={(event) => setManualText(event.target.value)} />
+                  <button className="btn btn-brand" type="submit" disabled={!manualText.trim() || phase === 'generating'}>Add</button>
+                </form>
+              )}
+              <input ref={fileRef} className="cz-sr" type="file" accept=".csv,text/csv" aria-label="Upload CSV" onChange={(event) => { if (event.target.files?.length) onGenerate(); }} />
+            </section>
           </div>
         ) : expanded ? (
           <table className="cz-table">
@@ -804,46 +867,105 @@ function QuestionsPage({
               ))}
             </tbody>
           </table>
-        ) : (
+        ) : verified ? (
           <table className="cz-table">
             <thead>
               <tr>
-                {verified ? <th aria-label="Select" /> : null}
+                <th aria-label="Select" />
                 <th>Question</th>
                 <th>Source</th>
-                {verified ? <th>Rating</th> : null}
+                <th>Rating</th>
                 <th>Semantic Model</th>
                 <th>Last Modified</th>
                 <th>Classification</th>
-                {verified ? null : <th>Findings</th>}
               </tr>
             </thead>
             <tbody>
               {QUESTIONS.map((question) => (
                 <tr key={question.id}>
-                  {verified ? <td><input type="checkbox" aria-label={`Select ${question.text}`} /></td> : null}
+                  <td><input type="checkbox" aria-label={`Select ${question.text}`} /></td>
+                  <td><button className="cz-q" type="button" onClick={onOpen}>{question.text}</button></td>
+                  <td>{question.list.source}</td>
                   <td>
-                    <button className="cz-q" type="button" onClick={verified ? onOpen : onReview}>{question.text}</button>
+                    <span className="rating">
+                      <span><ThumbsUp size={12} /> {question.list.up}</span>
+                      <span><ThumbsDown size={12} /> {question.list.down}</span>
+                    </span>
                   </td>
-                  <td>{verified ? question.list.source : question.source}</td>
-                  {verified ? (
-                    <td>
-                      <span className="rating">
-                        <span><ThumbsUp size={12} /> {question.list.up}</span>
-                        <span><ThumbsDown size={12} /> {question.list.down}</span>
-                      </span>
-                    </td>
-                  ) : null}
                   <td>{question.model}</td>
-                  <td>{verified ? question.list.modified : '24 minutes ago'}</td>
-                  <td>{verified ? <span className="cz-pill cz-pill-good"><Shield size={12} /> Verified</span> : <span className="cz-pill">New</span>}</td>
-                  {verified ? null : <td><span className="cz-pill cz-pill-warn">Missing Definitions</span></td>}
+                  <td>{question.list.modified}</td>
+                  <td><span className="cz-pill cz-pill-good"><Shield size={12} /> Verified</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <table className="cz-table">
+            <thead>
+              <tr>
+                <th aria-label="Select" />
+                <th>Question</th>
+                <th>Source</th>
+                <th>Rating</th>
+                <th>Semantic Model</th>
+                <th>Last Modified</th>
+                <th>Classification</th>
+                <th>Verified Query</th>
+              </tr>
+            </thead>
+            <tbody>
+              {GENERATED_QUESTIONS.map((question, index) => (
+                <tr key={`${question.text}-${index}`}>
+                  <td><input type="checkbox" aria-label={`Select ${question.text}`} /></td>
+                  <td><button className="cz-q" type="button" onClick={onReview}>{question.text}</button></td>
+                  <td>AI Generated</td>
+                  <td>
+                    <span className="rating">
+                      <span><ThumbsUp size={12} /> {question.up}</span>
+                      <span><ThumbsDown size={12} /> {question.down}</span>
+                    </span>
+                  </td>
+                  <td>C360</td>
+                  <td>24 minutes ago</td>
+                  <td><span className="cz-pill">New</span></td>
+                  <td />
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </section>
+      </>
+      )}
+      {semanticOpen && (
+        <div className="cz-scrim" onClick={closeSemantic}>
+          <div className="cz-gen-modal" role="dialog" aria-modal="true" aria-labelledby="cz-gen-title" onClick={(event) => event.stopPropagation()}>
+            <button className="cz-gen-close" type="button" aria-label="Close" onClick={closeSemantic}><Close size={12} /></button>
+            <h2 id="cz-gen-title">Generate Questions</h2>
+            <p>pick a semantic model and choose how many questions should be generated</p>
+            <label className="cz-gen-field">
+              <select className={draftModel ? 'has-value' : ''} value={draftModel} onChange={(event) => setDraftModel(event.target.value)} aria-label="Semantic model">
+                <option value="">Select a model</option>
+                <option value="Sales">Sales</option>
+                <option value="Marketing">Marketing</option>
+                <option value="C360">C360</option>
+              </select>
+            </label>
+            <label className="cz-gen-field">
+              <select className={draftCount ? 'has-value' : ''} value={draftCount} onChange={(event) => setDraftCount(event.target.value)} aria-label="Number of questions">
+                <option value="">Number of questions</option>
+                <option value="2">2</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+              </select>
+            </label>
+            <div className="cz-gen-actions">
+              <button className="cz-gen-cancel" type="button" onClick={closeSemantic}>Cancel</button>
+              <button className="btn btn-brand" type="button" disabled={!draftModel || !draftCount} onClick={() => { onGenerate(draftModel, draftCount); closeSemantic(); }}>Upload</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -854,6 +976,7 @@ function CalibrationPage({
   score,
   followUp,
   model,
+  onBack,
   termDrafts,
   savedTerms,
   openTerm,
@@ -873,6 +996,7 @@ function CalibrationPage({
   score: number | null;
   followUp: boolean;
   model: string;
+  onBack: () => void;
   termDrafts: Record<string, string>;
   savedTerms: string[];
   openTerm: string;
@@ -898,17 +1022,24 @@ function CalibrationPage({
     : unlockedSuggestions.filter((item) => !applied.includes(item.id));
   const questions = followUp
     ? SECOND_QUESTIONS
-    : QUESTIONS.map((question) => ({ text: question.text, finding: 'missing' as const }));
+    : GENERATED_QUESTIONS.map((question, index) => ({
+        text: question.text,
+        finding: index < 2 ? 'missing' as const : 'clear' as const,
+      }));
   return (
     <div className="cz-cal">
       <div className="cz-cal-main">
-        <h1>Model Name - {model}</h1>
+        <div className="cz-cal-title">
+          <button className="cz-cal-back" type="button" aria-label="Back" onClick={onBack}><ArrowLeft size={16} /></button>
+          <h1>Model Name - {model}</h1>
+        </div>
         <div className="cz-meta-line">
           <span>Generalization Score <b className={`cz-score${score === null ? ' na' : !followUp && score > 40 ? ' up' : ''}`}>{score === null ? 'NA' : `${score}%`}</b></span>
           <span>Run Time: 20 seconds</span>
           <span>Last Modified A week ago</span>
         </div>
         {showProgress && <ProgressBanner label="Applying calibrations" progress={progress} />}
+        <div className="cz-cal-table">
         <table className="cz-table">
           <thead>
             <tr>
@@ -931,6 +1062,7 @@ function CalibrationPage({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       <aside className="cz-rail">
         {done ? (
@@ -948,49 +1080,12 @@ function CalibrationPage({
               <span className="cz-ai">AI-generated</span>
             </div>
             <div className="cz-rail-scroll">
-            {followUp && (
+            <section className="cz-cals">
+              <h2>Suggested Calibrations</h2>
               <div className="cz-cal-filters">
                 <select aria-label="Calibration type" defaultValue="all"><option value="all">All Calibrations Types</option></select>
                 <select aria-label="Impact" defaultValue="any"><option value="any">Impact</option></select>
               </div>
-            )}
-            {!followUp && (
-            <section className="cz-terms">
-              <h2>Terms - Require Input</h2>
-              {TERMS.map((term) => {
-                const open = openTerm === term.id;
-                const saved = savedTerms.includes(term.id);
-                return (
-                  <div key={term.id} className={`cz-term ${open ? 'open' : ''}`}>
-                    <button type="button" className="cz-term-toggle" onClick={() => onToggleTerm(open ? '' : term.id)}>
-                      {open ? '▾' : '▸'} {term.label}
-                      {saved ? <span className="cz-saved">Saved</span> : null}
-                    </button>
-                    {open && !saved && (
-                      <div className="cz-term-body">
-                        <p>{term.prompt}</p>
-                        <textarea
-                          value={termDrafts[term.id] ?? ''}
-                          placeholder="Use text to explain the term"
-                          onChange={(event) => onDraft(term.id, event.target.value)}
-                        />
-                        <button
-                          className="cz-text-btn"
-                          type="button"
-                          disabled={!termDrafts[term.id]?.trim()}
-                          onClick={() => onSaveTerm(term.id)}
-                        >
-                          Save &amp; Suggest
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </section>
-            )}
-            <section className="cz-cals">
-              <h2>Suggested Calibrations</h2>
               {visibleSuggestions.map((item) => {
                 const open = openCalibration === item.id;
                 return (
@@ -1023,6 +1118,41 @@ function CalibrationPage({
                 );
               })}
             </section>
+            {!followUp && (
+            <section className="cz-terms">
+              <h2>Require Input</h2>
+              {TERMS.map((term) => {
+                const open = openTerm === term.id;
+                const saved = savedTerms.includes(term.id);
+                return (
+                  <div key={term.id} className={`cz-term ${open ? 'open' : ''}`}>
+                    <button type="button" className="cz-term-toggle" onClick={() => onToggleTerm(open ? '' : term.id)}>
+                      {open ? '▾' : '▸'} {term.label}
+                      {saved ? <span className="cz-saved">Saved</span> : null}
+                    </button>
+                    {open && !saved && (
+                      <div className="cz-term-body">
+                        <p>{term.prompt}</p>
+                        <textarea
+                          value={termDrafts[term.id] ?? ''}
+                          placeholder="Use text to explain the term"
+                          onChange={(event) => onDraft(term.id, event.target.value)}
+                        />
+                        <button
+                          className="cz-text-btn"
+                          type="button"
+                          disabled={!termDrafts[term.id]?.trim()}
+                          onClick={() => onSaveTerm(term.id)}
+                        >
+                          Save &amp; Suggest
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
+            )}
             </div>
             <button className="btn btn-outlined cz-apply-all" type="button" onClick={onApplyAll} disabled={!followUp && unlockedSuggestions.length === 0}>Apply All</button>
           </>
@@ -1459,14 +1589,14 @@ function SalesModel({ onOpenQa }: { onOpenQa: () => void }) {
           </div>
           <div className="sm-diagram">
             <svg className="sm-lines" viewBox="0 0 1000 460" aria-hidden="true">
-              <path d="M128 78H190V368H128M190 214H248M312 214H808M640 236V350H808" />
+              <path d="M128 78H176C183.732 78 190 84.268 190 92V354C190 361.732 183.732 368 176 368H128M190 214H248M312 214H808M640 236V336C640 343.732 646.268 350 654 350H808" />
             </svg>
             <ModelNode icon="object" label="Email Engagement" left="9%" top="17%" />
             <ModelNode icon="object" label="Message Engagement" left="9%" top="46%" />
             <ModelNode icon="person" tone="purple" label="Email Conversion" left="9%" top="80%" />
             <ModelNode icon="object" label="Campaign" left="28%" top="46%" />
             <ModelNode icon="object" label="Product" left="45%" top="46%" />
-            <ModelNode icon="recycle" tone="purple" label="Transactions" left="64%" top="46%" />
+            <ModelNode icon="object" label="Transactions" left="64%" top="46%" />
             <ModelNode icon="object" label="Stores" left="83%" top="46%" />
             <ModelNode icon="object" label="Website" left="83%" top="76%" />
             <ModelNode icon="grid" tone="orange" label="Dates" left="96%" top="60%" />
@@ -1832,6 +1962,30 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: '
   );
 }
 
+function GeneratingRun({ progress }: { progress: number }) {
+  return (
+    <section className="cz-run">
+      <div className="cz-run-meta">
+        <span><b>Agent: </b>Concierge Sales</span>
+        <span><b>Run by:</b> Harry Anderson</span>
+        <span><b>Start time</b> 02/24/2023, 11:34 AM</span>
+      </div>
+      <div className="cz-run-body">
+        <div className="cz-run-main">
+          <div className="cz-run-copy">
+            <p><b>Processing: </b>{progress}% (1m 30s elapsed)</p>
+            <p>Estimated Remaining Time: 30sec</p>
+          </div>
+          <div className="cz-run-track" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <span style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+        <button className="cz-run-stop" type="button" aria-label="Stop"><i /></button>
+      </div>
+    </section>
+  );
+}
+
 function ProgressBanner({ label, progress }: { label: string; progress: number }) {
   return (
     <div className="cz-progress">
@@ -1849,23 +2003,69 @@ function ProgressBanner({ label, progress }: { label: string; progress: number }
   );
 }
 
-function EmptyArt() {
-  const art = `${import.meta.env.BASE_URL}illustrations/no-questions`;
+function LakeArt() {
+  const art = `${import.meta.env.BASE_URL}illustrations/lake-mountain`;
   return (
-    <div className="cz-art" aria-hidden="true">
-      <img className="cz-art-mountain" src={`${art}/mountain.svg`} alt="" />
-      <img className="cz-art-cloud1" src={`${art}/cloud1.svg`} alt="" />
-      <img className="cz-art-cloud2" src={`${art}/cloud2.svg`} alt="" />
-      <img className="cz-art-nap-light" src={`${art}/nap-light.svg`} alt="" />
-      <img className="cz-art-nap-dark" src={`${art}/nap-dark.svg`} alt="" />
-      <img className="cz-art-tree3-light" src={`${art}/tree3-light.svg`} alt="" />
-      <img className="cz-art-tree3-dark" src={`${art}/tree3-dark.svg`} alt="" />
-      <img className="cz-art-tree2-light" src={`${art}/tree2-light.svg`} alt="" />
-      <img className="cz-art-tree2-dark" src={`${art}/tree2-dark.svg`} alt="" />
-      <img className="cz-art-tree1-light" src={`${art}/tree3-light.svg`} alt="" />
-      <img className="cz-art-tree1-dark" src={`${art}/tree1-dark.svg`} alt="" />
-      <img className="cz-art-birds" src={`${art}/birds.svg`} alt="" />
+    <div className="cz-lake" aria-hidden="true">
+      <img className="cz-lake-cloud2" src={`${art}/cloud2-light.svg`} alt="" />
+      <img className="cz-lake-mtn-white" src={`${art}/mountain-white.svg`} alt="" />
+      <img className="cz-lake-mtn-light" src={`${art}/mountain-light.svg`} alt="" />
+      <img className="cz-lake-fg-light" src={`${art}/foreground-light.svg`} alt="" />
+      <img className="cz-lake-fg-dark" src={`${art}/foreground-dark.svg`} alt="" />
+      <img className="cz-lake-tree2-light" src={`${art}/tree2-light.svg`} alt="" />
+      <img className="cz-lake-tree2-dark" src={`${art}/tree2-dark.svg`} alt="" />
+      <img className="cz-lake-tree1-light" src={`${art}/tree1-light.svg`} alt="" />
+      <img className="cz-lake-tree1-dark" src={`${art}/tree1-dark.svg`} alt="" />
+      <img className="cz-lake-cloud1-white" src={`${art}/cloud1-white.svg`} alt="" />
+      <img className="cz-lake-cloud1" src={`${art}/cloud1-light.svg`} alt="" />
     </div>
+  );
+}
+
+function SourceIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <circle cx="3" cy="7" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="11" cy="3.2" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="11" cy="10.8" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4.5 6.4 9.4 3.8M4.5 7.6 9.4 10.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function SlackIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <path d="M5.2 1.2h1.4v3.2H5.2A1.6 1.6 0 1 1 5.2 1.2Zm0 4.4h4.8V7H5.2V5.6ZM1.2 5.2A1.6 1.6 0 1 1 4.4 5.2v1.4H1.2V5.2Zm8.8 0h1.4A1.6 1.6 0 1 1 8.8 7V5.6h1.2V5.2ZM8.8 8.4v3.2A1.6 1.6 0 1 1 7.2 10V8.4h1.6ZM5.6 12.8A1.6 1.6 0 1 1 7 9.6V8.4H5.6v4.4Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function DashboardIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <rect x="1.2" y="1.2" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="7.8" y="1.2" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="1.2" y="7.8" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="7.8" y="7.8" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <path d="M8.2 2.2 11.8 5.8 5 12.6H1.4V9L8.2 2.2Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M7 3.4 10.6 7" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <path d="M7 1.6v7.2M4.2 4.4 7 1.6l2.8 2.8M2.2 9.2v2.2h9.6V9.2" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
