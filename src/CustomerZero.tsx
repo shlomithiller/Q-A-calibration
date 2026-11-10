@@ -236,7 +236,9 @@ export function CustomerZero() {
   const [picked, setPicked] = useState<'accurate' | 'inaccurate' | null>(null);
   const [correction, setCorrection] = useState('');
   const [revisionReady, setRevisionReady] = useState(false);
+  const [analysing, setAnalysing] = useState(false);
   const [reclassified, setReclassified] = useState<'accurate' | 'inaccurate' | null>(null);
+  const [changeChoice, setChangeChoice] = useState<'keep' | null>(null);
   const [saving, setSaving] = useState(false);
   const [calibrationDot, setCalibrationDot] = useState(false);
   const [secondDone, setSecondDone] = useState(false);
@@ -346,7 +348,9 @@ export function CustomerZero() {
     setPicked(null);
     setCorrection('');
     setRevisionReady(false);
+    setAnalysing(false);
     setReclassified(null);
+    setChangeChoice(null);
     setSaving(false);
     const timer = window.setTimeout(() => setAnswerReady(true), 1200);
     return () => window.clearTimeout(timer);
@@ -404,8 +408,8 @@ export function CustomerZero() {
     if (calibrationDot) {
       const next = [...new Set([...applied, ...SECOND_SUGGESTIONS.map((item) => item.id)])];
       setApplied(next);
-      setSecondDone(true);
-      setPage('questions');
+      setCalibrationDetail(true);
+      setPage('calibration');
       return;
     }
     const suggested = CALIBRATIONS.filter((item) => item.id !== 'description');
@@ -460,14 +464,26 @@ export function CustomerZero() {
     leaveQuestion(verifiedIds.filter((item) => item !== id));
   };
 
+  const applyRevision = () => {
+    if (!correction.trim() || analysing || revisionReady) return;
+    setAnalysing(true);
+    window.setTimeout(() => {
+      setAnalysing(false);
+      setRevisionReady(true);
+    }, 1600);
+  };
+
+  const revertRevision = () => {
+    setRevisionReady(false);
+    setChangeChoice(null);
+    setReclassified(null);
+  };
+
   const retest = () => {
     if (phase !== 'verified' && phase !== 'matched') return;
     setPhase('retesting');
     setPage('questions');
   };
-
-  const reviewCount = bothVerified ? 0 : generated ? QUESTIONS.length : 0;
-  const suggestionCount = generated ? 2 : 0;
 
   return (
     <div className="app">
@@ -526,7 +542,7 @@ export function CustomerZero() {
                 <button className={`nav-item ${page === 'classify' ? 'active' : ''}`} type="button" onClick={openVerified}>Verified Queries</button>
                 <button className={`nav-item cz-nav-calibration ${page === 'calibration' ? 'active' : ''}`} type="button" onClick={() => { setCalibrationDetail(false); openCalibration(); }} disabled={!generated}>
                   Model Calibration
-                  {generated && <span className="cz-nav-dot" aria-hidden="true" />}
+                  {(generated && !calibrationDot && phase !== 'applied' && phase !== 'classify' && phase !== 'verified' && phase !== 'retesting' && phase !== 'matched') || (calibrationDot && SECOND_SUGGESTIONS.some((item) => !applied.includes(item.id))) ? <span className="cz-nav-dot" aria-hidden="true" /> : null}
                 </button>
                 <button className="nav-item" type="button">Tests</button>
               </>
@@ -541,8 +557,6 @@ export function CustomerZero() {
               model={model}
               queryCount={queryCount}
               progress={progress}
-              reviewCount={reviewCount}
-              suggestionCount={suggestionCount}
               verified={bothVerified}
               matched={phase === 'matched'}
               onGenerate={generate}
@@ -579,7 +593,7 @@ export function CustomerZero() {
               openCalibration={openCalibrationId}
               onToggleCalibration={setOpenCalibrationId}
               applied={applied}
-              done={phase === 'applied'}
+              done={calibrationDot ? SECOND_SUGGESTIONS.every((item) => applied.includes(item.id)) : phase === 'applied'}
               onDraft={(id, value) => setTermDrafts((current) => ({ ...current, [id]: value }))}
               onToggleTerm={setOpenTerm}
               onSaveTerm={saveTerm}
@@ -633,8 +647,12 @@ export function CustomerZero() {
             correction={correction}
             onCorrection={setCorrection}
             revisionReady={revisionReady}
+            analysing={analysing}
             reclassified={reclassified}
-            onApplyRevision={() => correction.trim() && setRevisionReady(true)}
+            onApplyRevision={applyRevision}
+            onKeepRevision={() => setChangeChoice('keep')}
+            onRevertRevision={revertRevision}
+            kept={changeChoice === 'keep'}
             onPick={(choice) => {
               if (choice === 'inaccurate') setPicked('inaccurate');
               else runClassification('accurate');
@@ -646,7 +664,9 @@ export function CustomerZero() {
             onChange={() => {
               setPicked(null);
               setRevisionReady(false);
+              setAnalysing(false);
               setReclassified(null);
+              setChangeChoice(null);
             }}
             canGoBack={classifyIndex > 0}
             onBack={() => setClassifyIndex(classifyIndex - 1)}
@@ -679,8 +699,6 @@ function QuestionsPage({
   model,
   queryCount,
   progress,
-  reviewCount,
-  suggestionCount,
   verified,
   matched,
   onGenerate,
@@ -693,8 +711,6 @@ function QuestionsPage({
   model: string;
   queryCount: string;
   progress: number;
-  reviewCount: number;
-  suggestionCount: number;
   verified: boolean;
   matched: boolean;
   onGenerate: (nextModel?: string, nextCount?: string) => void;
@@ -711,6 +727,7 @@ function QuestionsPage({
   const [semanticOpen, setSemanticOpen] = useState(false);
   const [draftModel, setDraftModel] = useState('');
   const [draftCount, setDraftCount] = useState('');
+  const [reviewOpen, setReviewOpen] = useState(false);
   const openSemantic = () => {
     setMenuOpen(false);
     setDraftModel('');
@@ -731,7 +748,7 @@ function QuestionsPage({
     <div className="cz-page">
       <div className="cz-title-row">
         <h1>All Questions</h1>
-        {expanded || phase === 'empty' || phase === 'generating' || (showList && !verified) ? (
+        {expanded || phase === 'empty' || phase === 'generating' || (showList && phase !== 'matched') ? (
           <div className="cz-add-split">
             <button className="cz-add-main" type="button" onClick={openManual}>Add Question</button>
             <button className="cz-add-more" type="button" aria-label="More ways to add questions" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
@@ -757,12 +774,6 @@ function QuestionsPage({
         <GeneratingRun progress={progress} />
       ) : (
       <>
-      {!expanded && phase !== 'empty' && <div className="cz-metrics">
-        <Metric label="Questions for review" value={reviewCount} />
-        <Metric label="Regression" value={0} />
-        <Metric label="VQs" value={verified ? QUESTIONS.length : 0} tone={verified ? 'good' : undefined} />
-        <Metric label="Calibration Suggestions" value={suggestionCount} tone={suggestionCount ? 'alert' : undefined} />
-      </div>}
       {busy && (
         <ProgressBanner
           label="Running batch regression"
@@ -781,17 +792,17 @@ function QuestionsPage({
       )}
       <section className="cz-card">
         <div className="cz-toolbar">
-          <span>{expanded ? `${QUESTION_CATALOG.length} questions` : verified ? `${QUESTIONS.length} questions` : showList ? `${GENERATED_QUESTIONS.length} questions` : '0 questions'}</span>
+          <span>{expanded || verified ? `${QUESTION_CATALOG.length} questions` : showList ? `${GENERATED_QUESTIONS.length} questions` : '0 questions'}</span>
           <div className="cz-tools">
             <span className="cz-fake-select">Any classification <ChevronDown size={12} /></span>
-            <span className="cz-fake-select">{expanded || (showList && !verified) ? 'Sales' : 'Any model'} <ChevronDown size={12} /></span>
+            <span className="cz-fake-select">{expanded || showList ? 'Sales' : 'Any model'} <ChevronDown size={12} /></span>
             <label className="cz-search">
               <Search size={14} />
               <input aria-label="Search questions" placeholder="Search..." />
             </label>
-            {expanded || phase === 'empty' ? (
+            {expanded || phase === 'empty' || (verified && phase !== 'matched') ? (
               <button className="icon-btn-bordered" type="button" aria-label="Refresh"><RefreshIcon /></button>
-            ) : verified && (
+            ) : phase === 'matched' && (
               <>
                 <button className="btn btn-brand" type="button" onClick={onReview}>Review</button>
                 <button className="icon-btn-bordered" type="button" aria-label="Filter"><FilterIcon size={14} /></button>
@@ -859,10 +870,10 @@ function QuestionsPage({
                   <td>24 minutes ago</td>
                   <td>
                     {question.verified
-                      ? <span className="cz-pill cz-pill-good"><Shield size={12} /> Verified</span>
+                      ? <span className="cz-pill cz-pill-verified"><Shield size={12} /> Verified</span>
                       : <span className="cz-pill">New</span>}
                   </td>
-                  <td>{question.verified ? <button className="cz-text-btn" type="button" onClick={onOpen}>Review</button> : null}</td>
+                  <td>{question.verified ? <button className="cz-text-btn" type="button" onClick={() => setReviewOpen(true)}>Review</button> : null}</td>
                 </tr>
               ))}
             </tbody>
@@ -878,25 +889,30 @@ function QuestionsPage({
                 <th>Semantic Model</th>
                 <th>Last Modified</th>
                 <th>Classification</th>
+                <th>Verified Query</th>
               </tr>
             </thead>
             <tbody>
-              {QUESTIONS.map((question) => (
-                <tr key={question.id}>
-                  <td><input type="checkbox" aria-label={`Select ${question.text}`} /></td>
-                  <td><button className="cz-q" type="button" onClick={onOpen}>{question.text}</button></td>
-                  <td>{question.list.source}</td>
-                  <td>
-                    <span className="rating">
-                      <span><ThumbsUp size={12} /> {question.list.up}</span>
-                      <span><ThumbsDown size={12} /> {question.list.down}</span>
-                    </span>
-                  </td>
-                  <td>{question.model}</td>
-                  <td>{question.list.modified}</td>
-                  <td><span className="cz-pill cz-pill-good"><Shield size={12} /> Verified</span></td>
-                </tr>
-              ))}
+              {QUESTION_CATALOG.map((question, index) => {
+                const reviewed = QUESTIONS.some((item) => item.text === question.text);
+                return (
+                  <tr key={`${question.text}-${index}`}>
+                    <td><input type="checkbox" aria-label={`Select ${question.text}`} /></td>
+                    <td><button className="cz-q" type="button" onClick={reviewed ? onOpen : undefined}>{question.text}</button></td>
+                    <td>AI Generated</td>
+                    <td>
+                      <span className="rating">
+                        <span><ThumbsUp size={12} /> {question.up}</span>
+                        <span><ThumbsDown size={12} /> {question.down}</span>
+                      </span>
+                    </td>
+                    <td>C360</td>
+                    <td>24 minutes ago</td>
+                    <td>{reviewed ? <span className="cz-pill cz-pill-verified"><Shield size={12} /> Verified</span> : <span className="cz-pill">New</span>}</td>
+                    <td>{reviewed ? <button className="cz-text-btn" type="button" onClick={() => setReviewOpen(true)}>Review</button> : null}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (
@@ -966,6 +982,99 @@ function QuestionsPage({
           </div>
         </div>
       )}
+      {reviewOpen && <ReviewQueryModal onClose={() => setReviewOpen(false)} />}
+    </div>
+  );
+}
+
+function ReviewQueryModal({ onClose }: { onClose: () => void }) {
+  const lines = [
+    { text: 'WITH ranked_products AS (', mark: false },
+    { text: '  SELECT', mark: false },
+    { text: '    pipeline_Value,', mark: false },
+    { text: '    total_sales_amount,', mark: true },
+    { text: '    ROW_NUMBER() OVER (', mark: false },
+    { text: '      ORDER BY', mark: false },
+    { text: '        total_sales_amount DESC NULLS LAST,', mark: true },
+    { text: '        product_name', mark: false },
+    { text: '    ) AS rn', mark: false },
+    { text: '  FROM', mark: false },
+    { text: '    SEMANTIC_VIEW(', mark: false },
+    { text: "      'sales_extended',", mark: false },
+    { text: '      DIMENSIONS', mark: false },
+    { text: '        Goods_Product.Product_Name AS product_name,', mark: true },
+    { text: '      MEASURES', mark: false },
+    { text: '        SUM(Opportunity_Product.Total_Price_Amount)', mark: true },
+    { text: '          AS total_sales_amount,', mark: true },
+    { text: '      WHERE', mark: false },
+    { text: "        LOWER(Opportunity.Won) = 'true'", mark: false },
+    { text: "        AND LOWER(Opportunity.Closed) = 'true'", mark: false },
+    { text: '        AND Opportunity.Close_Date >=', mark: false },
+    { text: "          DATE_TRUNC('quarter', CURRENT_DATE)", mark: false },
+    { text: "          + INTERVAL '3 months'", mark: true },
+    { text: '        AND Opportunity.Close_Date <', mark: false },
+  ];
+  const pane = (title: string, when: string, marked: boolean) => (
+    <div className="diff-panel">
+      <div className="diff-panel-header">
+        {marked ? <span className="diff-icon-oval diff-icon-oval-green"><Shield size={12} /></span> : null}
+        <span>{title}</span>
+      </div>
+      <div className="diff-panel-timestamp">{when}</div>
+      <div className="diff-panel-tabs">
+        <span className="diff-tab active"><span className="diff-tab-icon"><Code size={12} /></span>Query</span>
+      </div>
+      <div className="diff-panel-code">
+        <div className="diff-code-editor">
+          <div className="diff-line-numbers">
+            {lines.map((_, index) => <div key={index}>{index + 1}</div>)}
+          </div>
+          <div className="diff-code-content">
+            {lines.map((line, index) => (
+              <div key={index} className={`diff-code-line ${line.mark ? 'diff-add' : ''}`}>{line.text}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="diff-modal" role="dialog" aria-modal="true" aria-labelledby="cz-review-title" onClick={(event) => event.stopPropagation()}>
+        <button className="modal-close-btn" type="button" aria-label="Close" onClick={onClose}><Close size={14} /></button>
+        <div className="diff-modal-header">
+          <h2 className="diff-modal-title" id="cz-review-title">Review Differences</h2>
+        </div>
+        <div className="diff-modal-content">
+          {pane('Verified Expected Query', 'Classified on 04/22/2025 at 12:14 PM PST', true)}
+          {pane('Actual Answer', 'Generated on 04/24/2025 at 9:41 AM PST', false)}
+        </div>
+        <div className="diff-modal-footer">
+          <div className="diff-footer-analysis">
+            <div className="cz-review-analysis-head">
+              <span className="ai-input-icon"><SparkleSingle size={14} /></span>
+              <span className="ai-analysis-title">Response Deviation Analysis</span>
+              <span className="cz-review-pass"><Check size={12} /> Pass</span>
+            </div>
+            <p className="ai-analysis-body"><b>Status:</b> The agent&apos;s generated response matches the expected Verified Query ground truth.</p>
+            <p className="ai-analysis-body"><b>What can you do?</b> No further action needed</p>
+          </div>
+          <div className="diff-footer-metrics">
+            <div className="diff-metric-row">
+              <span className="diff-metric-label">Response Type</span>
+              <span className="diff-badge cz-review-same">Same</span>
+            </div>
+            <div className="diff-metric-row">
+              <span className="diff-metric-label">Data Response</span>
+              <span className="diff-badge cz-review-unequal">Not Equal</span>
+            </div>
+            <div className="diff-metric-row">
+              <span className="diff-metric-label">Query Logic</span>
+              <span className="diff-badge diff-badge-warning">Variance</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1020,12 +1129,47 @@ function CalibrationPage({
         fields: [] as [string, string][],
       }))
     : unlockedSuggestions.filter((item) => !applied.includes(item.id));
+  const findingsCleared = done && !showProgress;
   const questions = followUp
-    ? SECOND_QUESTIONS
+    ? SECOND_QUESTIONS.map((question) => ({
+        ...question,
+        finding: findingsCleared ? 'clear' as const : question.finding,
+      }))
     : GENERATED_QUESTIONS.map((question, index) => ({
         text: question.text,
-        finding: index < 2 ? 'missing' as const : 'clear' as const,
+        finding: index < 2 && !findingsCleared ? 'missing' as const : 'clear' as const,
       }));
+  const suggestionCards = visibleSuggestions.map((item) => {
+    const open = openCalibration === item.id;
+    return (
+      <article key={item.id} className="cz-cal-card">
+        <header>
+          <button type="button" className="cz-term-toggle" onClick={() => onToggleCalibration(open ? '' : item.id)}>
+            {open ? '▾' : '▸'} {item.title}
+            <span>{item.meta}</span>
+          </button>
+          <button type="button" className="cz-edit" onClick={() => onToggleCalibration(open ? '' : item.id)}>Edit in model</button>
+        </header>
+        {open && (
+          <>
+            <div className="cz-impact-row">
+              <span className={`cz-impact ${item.impact === 'High' ? 'high' : ''}`}>Impact: {item.impact}</span>
+              <span className="cz-impact-show">show</span>
+            </div>
+            {item.fields.map(([label, value]) => (
+              <label key={label}>
+                {label}
+                <textarea readOnly value={value} />
+              </label>
+            ))}
+            <button className="btn btn-brand cz-apply" type="button" onClick={() => onApply(item.id)}>
+              <Plus size={12} /> Apply
+            </button>
+          </>
+        )}
+      </article>
+    );
+  });
   return (
     <div className="cz-cal">
       <div className="cz-cal-main">
@@ -1056,7 +1200,7 @@ function CalibrationPage({
                 <td>
                   {question.finding === 'missing'
                     ? <span className="cz-pill cz-pill-warn">{followUp ? 'Missing Definition' : 'Missing Definitions'}</span>
-                    : <span className="cz-pill">Intent Clear</span>}
+                    : <span className="cz-pill cz-pill-clear">Intent Clear</span>}
                 </td>
               </tr>
             ))}
@@ -1086,37 +1230,7 @@ function CalibrationPage({
                 <select aria-label="Calibration type" defaultValue="all"><option value="all">All Calibrations Types</option></select>
                 <select aria-label="Impact" defaultValue="any"><option value="any">Impact</option></select>
               </div>
-              {visibleSuggestions.map((item) => {
-                const open = openCalibration === item.id;
-                return (
-                  <article key={item.id} className="cz-cal-card">
-                    <header>
-                      <button type="button" className="cz-term-toggle" onClick={() => onToggleCalibration(open ? '' : item.id)}>
-                        {open ? '▾' : '▸'} {item.title}
-                        <span>{item.meta}</span>
-                      </button>
-                      <button type="button" className="cz-edit" onClick={() => onToggleCalibration(open ? '' : item.id)}>Edit in model</button>
-                    </header>
-                    {open && (
-                      <>
-                        <div className="cz-impact-row">
-                          <span className={`cz-impact ${item.impact === 'High' ? 'high' : ''}`}>Impact: {item.impact}</span>
-                          <span className="cz-impact-show">show</span>
-                        </div>
-                        {item.fields.map(([label, value]) => (
-                          <label key={label}>
-                            {label}
-                            <textarea readOnly value={value} />
-                          </label>
-                        ))}
-                        <button className="btn btn-brand cz-apply" type="button" onClick={() => onApply(item.id)}>
-                          <Plus size={12} /> Apply
-                        </button>
-                      </>
-                    )}
-                  </article>
-                );
-              })}
+              {followUp ? suggestionCards : null}
             </section>
             {!followUp && (
             <section className="cz-terms">
@@ -1152,6 +1266,9 @@ function CalibrationPage({
                 );
               })}
             </section>
+            )}
+            {!followUp && suggestionCards.length > 0 && (
+              <section className="cz-cals">{suggestionCards}</section>
             )}
             </div>
             <button className="btn btn-outlined cz-apply-all" type="button" onClick={onApplyAll} disabled={!followUp && unlockedSuggestions.length === 0}>Apply All</button>
@@ -1280,8 +1397,12 @@ function ClassificationRail({
   correction,
   onCorrection,
   revisionReady,
+  analysing,
   reclassified,
   onApplyRevision,
+  onKeepRevision,
+  onRevertRevision,
+  kept,
   onPick,
   onRepick,
   onChange,
@@ -1296,8 +1417,12 @@ function ClassificationRail({
   correction: string;
   onCorrection: (value: string) => void;
   revisionReady: boolean;
+  analysing: boolean;
   reclassified: 'accurate' | 'inaccurate' | null;
   onApplyRevision: () => void;
+  onKeepRevision: () => void;
+  onRevertRevision: () => void;
+  kept: boolean;
   onPick: (choice: 'accurate' | 'inaccurate') => void;
   onRepick: (choice: 'accurate' | 'inaccurate') => void;
   onChange: () => void;
@@ -1320,7 +1445,7 @@ function ClassificationRail({
         {picked === 'inaccurate' ? (
           <div className="inaccurate-body">
             <p className="inaccurate-prompt">Please describe what went wrong and the desired state (one issue at a time).</p>
-            <div className={`ai-input-wrap ${correction.trim() ? 'has-content' : ''}`}>
+            <div className={`ai-input-wrap ${correction.trim() ? 'has-content' : ''} ${analysing ? 'is-analysing' : ''}`}>
               <div className="ai-input-glow" aria-hidden />
               <div className="ai-input">
                 <span className="ai-input-icon" aria-hidden><SparkleSingle size={14} /></span>
@@ -1329,17 +1454,36 @@ function ClassificationRail({
                   value={correction}
                   onChange={(event) => onCorrection(event.target.value)}
                   rows={6}
+                  readOnly={analysing || revisionReady}
                   placeholder="The agent used 'Total Orders' field but the expected query references 'Pipeline Value' instead."
                 />
+                {analysing && (
+                  <div className="cz-analyse" role="status">
+                    <span className="cz-analyse-ring" aria-hidden="true">{Array.from({ length: 8 }, (_, index) => <i key={index} />)}</span>
+                    <p>Analysing desired request</p>
+                  </div>
+                )}
               </div>
             </div>
             <div className="cz-explain-row">
               <div className="alt-action">
                 OR <button type="button" className="link-button" onClick={onChange}>Classify Manually</button>
               </div>
-              <button className="btn-pill-outline" type="button" disabled={!correction.trim()} onClick={onApplyRevision}>Apply</button>
+              <button className="btn-pill-outline" type="button" disabled={!correction.trim() || analysing || revisionReady} onClick={onApplyRevision}>{revisionReady ? 'Applied' : 'Apply'}</button>
             </div>
             {revisionReady && (
+              <div className="cz-change-choice" role="radiogroup" aria-label="Query change">
+                <label>
+                  <input type="radio" name="query-change" checked={kept} onChange={onKeepRevision} />
+                  Save the current change
+                </label>
+                <label>
+                  <input type="radio" name="query-change" checked={false} onChange={onRevertRevision} />
+                  Revert action
+                </label>
+              </div>
+            )}
+            {revisionReady && kept && (
               <>
                 <p className="classification-prompt">How would you classify the agent&apos;s response?</p>
                 <ChoiceCards picked={reclassified} onPick={onRepick} />
@@ -1420,7 +1564,7 @@ function QueryDiff({ questionId }: { questionId: string }) {
       {lines.map((line, index) => (
         <div key={index}>
           {line.map((token, tokenIndex) => (
-            <span key={tokenIndex} className={token.tone ? `cz-token-${token.tone}` : undefined}>{token.text}</span>
+            token.tone === 'del' ? null : <span key={tokenIndex} className={token.tone === 'add' ? 'cz-token-add' : undefined}>{token.text}</span>
           ))}
         </div>
       ))}
@@ -1827,9 +1971,7 @@ function CalibrationHome({
   );
 }
 
-function VerifiedPage({
-  onBack,
-}: {
+function VerifiedPage(_props: {
   testing: boolean;
   passed: boolean;
   progress: number;
@@ -1838,10 +1980,13 @@ function VerifiedPage({
 }) {
   const [modelOpen, setModelOpen] = useState(true);
   const [customOpen, setCustomOpen] = useState(false);
-  const [suite, setSuite] = useState<'sales' | 'c360'>('sales');
+  const [suite, setSuite] = useState<'sales' | 'c360'>('c360');
   const [run, setRun] = useState<'idle' | 'running' | 'passed'>('idle');
   const [progress, setProgress] = useState(0);
   const [query, setQuery] = useState('');
+  const [warnHover, setWarnHover] = useState(false);
+  const [warnClosed, setWarnClosed] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   useEffect(() => {
     if (run !== 'running') return;
@@ -1859,22 +2004,27 @@ function VerifiedPage({
     };
   }, [run]);
 
-  const rows = (suite === 'sales' ? SALES_VERIFIED : QUESTIONS.map((question) => ({
-    text: question.text,
-    source: question.list.source,
-    up: question.list.up,
-    down: question.list.down,
-    modified: question.list.modified,
-  }))).filter((row) => row.text.toLowerCase().includes(query.trim().toLowerCase()));
+  const needle = query.trim().toLowerCase();
+  const rows = (suite === 'sales'
+    ? SALES_VERIFIED
+    : QUESTION_CATALOG.filter((question) => question.verified).map((question) => ({
+      text: question.text,
+      source: 'AI Generated',
+      up: question.up,
+      down: question.down,
+      modified: '24 minutes ago',
+    }))
+  ).filter((row) => row.text.toLowerCase().includes(needle));
   const modelName = suite === 'sales' ? 'Sales' : 'C360';
 
   return (
     <div className="cz-vq-page">
       <aside className="cz-suite-card">
         <div className="cz-suite-label">All Verified Queries</div>
+        <div className="cz-suite-heading">Regression Test Suites</div>
         <button className="cz-suite-toggle" type="button" onClick={() => setModelOpen((open) => !open)}>
           {modelOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Model Test Suites
+          By Model
         </button>
         {modelOpen && (
           <div className="cz-suite-items">
@@ -1884,13 +2034,37 @@ function VerifiedPage({
         )}
         <button className="cz-suite-toggle" type="button" onClick={() => setCustomOpen((open) => !open)}>
           {customOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Custom Test Suites
+          Custom
         </button>
       </aside>
       <section className="cz-vq-main">
         <div className="cz-vq-head">
-          <h1>Verified Queries - {modelName} Model</h1>
-          <button className="btn btn-brand" type="button" onClick={() => setRun('running')} disabled={run === 'running'}>Test Model</button>
+          <h1>
+            Verified Queries - {modelName} Model
+            {suite === 'c360' && run !== 'passed' && (
+              <span
+                className="cz-vq-warn"
+                onMouseEnter={() => setWarnHover(true)}
+                onMouseLeave={() => { setWarnHover(false); setWarnClosed(false); }}
+              >
+                <svg className="cz-vq-warning" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none" role="img" aria-label="Warning">
+                  <path d="M14.8296 12.2582L8.22384 1.57565C7.87769 0.998219 7.12769 0.998219 6.78153 1.57565L0.175763 12.2582C-0.228083 12.9223 0.175763 13.8461 0.896917 13.8461H14.1085C14.8296 13.8461 15.2623 12.9223 14.8296 12.2582ZM7.50267 11.5361C7.01229 11.5361 6.63729 11.1608 6.63729 10.67C6.63729 10.1792 7.01229 9.80382 7.50267 9.80382C7.99306 9.80382 8.36806 10.1792 8.36806 10.67C8.36806 11.1608 7.99306 11.5361 7.50267 11.5361ZM8.36806 8.93783C8.36806 9.11106 8.25268 9.22655 8.0796 9.22655H6.92575C6.75268 9.22655 6.63729 9.11106 6.63729 8.93783V5.1845C6.63729 5.01127 6.75268 4.89578 6.92575 4.89578H8.0796C8.25268 4.89578 8.36806 5.01127 8.36806 5.1845V8.93783Z" fillRule="evenodd" clipRule="evenodd" fill="#8C4B02" />
+                </svg>
+                {warnHover && !warnClosed && (
+                  <div className="cz-vq-pop" role="tooltip">
+                    <button className="cz-vq-pop-close" type="button" aria-label="Close" onClick={() => setWarnClosed(true)}>
+                      <Close size={14} />
+                    </button>
+                    <p>Model changed its advised to run a regression test to see the model still matches the vq.</p>
+                  </div>
+                )}
+              </span>
+            )}
+          </h1>
+          <div className="cz-vq-actions">
+            <button className="cz-suite-delete" type="button">Delete Suite</button>
+            <button className="btn btn-brand" type="button" onClick={() => setRun('running')} disabled={run === 'running'}>Run Test Suite</button>
+          </div>
         </div>
         {run === 'running' && (
           <div className="cz-vq-run">
@@ -1901,16 +2075,11 @@ function VerifiedPage({
         {run === 'passed' && (
           <div className="cz-vq-pass">
             <span>All VQ&apos;s passed the regression test</span>
-            <button type="button" onClick={onBack}>Review</button>
           </div>
         )}
         <div className="cz-vq-table-card">
           <div className="cz-vq-tools">
             <span>{rows.length} questions</span>
-            <select aria-label="Status" defaultValue="any">
-              <option value="any">Any Status</option>
-              <option value="verified">Verified</option>
-            </select>
             <label className="cz-vq-search">
               <Search size={14} />
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search..." aria-label="Search questions" />
@@ -1921,10 +2090,15 @@ function VerifiedPage({
               <tr>
                 <th aria-label="Select" />
                 <th>Question</th>
-                <th>Source</th>
-                <th>Rating</th>
-                <th>Last Modified</th>
+                {suite === 'sales' && (
+                  <>
+                    <th>Source</th>
+                    <th>Rating</th>
+                    <th>Last Modified</th>
+                  </>
+                )}
                 <th>Classification</th>
+                {suite === 'c360' && <th>Test Result</th>}
                 <th>Verified Query</th>
               </tr>
             </thead>
@@ -1932,23 +2106,31 @@ function VerifiedPage({
               {rows.map((row) => (
                 <tr key={row.text}>
                   <td><input type="checkbox" aria-label={`Select ${row.text}`} /></td>
-                  <td>{row.text}</td>
-                  <td>{row.source}</td>
-                  <td>
-                    <span className="rating">
-                      <span><ThumbsUp size={12} /> {row.up}</span>
-                      <span><ThumbsDown size={12} /> {row.down}</span>
-                    </span>
-                  </td>
-                  <td>{row.modified}</td>
-                  <td><span className="cz-pill cz-pill-good"><Shield size={12} /> Verified</span></td>
-                  <td><button className="cz-text-btn" type="button" onClick={onBack}>Review</button></td>
+                  <td><button className="cz-q" type="button">{row.text}</button></td>
+                  {suite === 'sales' && (
+                    <>
+                      <td>{row.source}</td>
+                      <td>
+                        <span className="rating">
+                          <span><ThumbsUp size={12} /> {row.up}</span>
+                          <span><ThumbsDown size={12} /> {row.down}</span>
+                        </span>
+                      </td>
+                      <td>{row.modified}</td>
+                    </>
+                  )}
+                  <td><span className="cz-pill cz-pill-verified"><Shield size={12} /> Verified</span></td>
+                  {suite === 'c360' && (
+                    <td><span className="cz-pill cz-vq-pass-pill"><Check size={12} /> Pass</span></td>
+                  )}
+                  <td><button className="cz-text-btn" type="button" onClick={() => setReviewOpen(true)}>Review</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </section>
+      {reviewOpen && <ReviewQueryModal onClose={() => setReviewOpen(false)} />}
     </div>
   );
 }
