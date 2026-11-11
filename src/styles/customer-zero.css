@@ -53,7 +53,8 @@
 }
 .cz-metrics-3 { grid-template-columns: repeat(3, 1fr); }
 .cz-section-title { margin: 4px 0 0; font-size: 16px; font-weight: 400; }
-.cz-warn-name { color: #8c4b02; display: inline-flex; align-items: center; gap: 6px; }
+.cz-warn-name { display: inline-flex; align-items: center; gap: 8px; }
+.cz-warn-name img { flex-shrink: 0; }
 .cz-model-note { margin: 0; color: var(--color-on-surface-1); }
 .cz-reg {
   display: inline-flex;
@@ -830,7 +831,23 @@
   padding: 2px 8px;
 }
 .cz-impact.high { background: #cdefc4; color: #22683e; }
-.cz-impact-show { color: var(--color-link); font-size: 12px; }
+.cz-cal-card .cz-impact { color: #8c4b02; }
+.cz-cal-card .cz-impact.high { color: #22683e; }
+.cz-impact strong { font-weight: 700; margin-left: 2px; }
+.cz-cal-card label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: #2e2e2e; }
+.cz-cal-card input,
+.cz-cal-card textarea {
+  width: 100%;
+  border: 1px solid #5c5c5c;
+  border-radius: 8px;
+  background: #fff;
+  color: #2e2e2e;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+}
+.cz-cal-card input { height: 32px; padding: 0 8px; }
+.cz-cal-card textarea { min-height: 48px; padding: 8px; resize: vertical; }
 .cz-token-add { background: #f0ebb2; border-radius: 2px; }
 .cz-explain-row {
   display: flex;
@@ -848,7 +865,7 @@
 .cz-cal-card + .cz-cal-card { margin-top: 10px; }
 .cz-apply-all { align-self: flex-end; flex-shrink: 0; margin-top: auto; }
 .cz-apply-all:disabled { opacity: 0.45; cursor: not-allowed; }
-.cz-cal-card label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--color-on-surface-1); }
+.cz-cal-card label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: #2e2e2e; }
 
 .cz-done {
   margin: auto;
@@ -1352,15 +1369,6 @@
   inset: 5px;
   background: #fff;
   border-radius: 1px;
-}
-.cz-vq-pass {
-  display: flex;
-  align-items: center;
-  background: #d8f3e8;
-  color: #056764;
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-weight: 600;
 }
 .cz-vq-table-card { background: #fff; border-radius: 12px; overflow: auto; flex: 1; }
 .cz-vq-tools { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }

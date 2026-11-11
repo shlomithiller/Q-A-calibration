@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import warningIcon from './assets/utility-warning.svg';
 import { DotSpinner } from './components/DotSpinner';
 import {
   AgentAstro,
@@ -96,13 +97,8 @@ GROUP BY source`,
 ];
 
 const HEALTH_MODELS = [
-  { name: 'C360', description: 'Lorem ipsum dolor sit amet, consectetur adipiscing...', regression: 0, calibrations: 5, up: 1, down: 0, questions: 2, warn: true },
-  { name: 'Marketing', description: 'Aliquam pulvinar vestibulum blandit. Donec sed ni...', regression: 10, calibrations: 5, up: 1, down: 0, questions: 5, warn: false },
-  { name: 'Insights', description: 'Donec sed erat ut magna suscipit mattis. Aliquam...', regression: 3, calibrations: 20, up: 22, down: 2, questions: 20, warn: false },
-  { name: 'ConversationalInten', description: 'Lorem ipsum dolor sit amet, consectetur adipiscin...', regression: 5, calibrations: 3, up: 7, down: 18, questions: 3, warn: false },
-  { name: 'Relevia.ai', description: 'In a laoreet purus. Integer turpis quam, laoreet id...', regression: 8, calibrations: 8, up: 0, down: 9, questions: 9, warn: false },
-  { name: 'InsightMatter.ai', description: 'Lorem ipsum dolor sit amet, consectetur adipiscin...', regression: 7, calibrations: 9, up: 11, down: 1, questions: 9, warn: false },
-  { name: 'ChainLift AI', description: 'Vestibulum eu quam nec neque pellentesque effic...', regression: 11, calibrations: 4, up: 18, down: 3, questions: 4, warn: false },
+  { name: 'C360', description: 'semantic model serves as the unified source of truth for all customer-cen...', up: 31, down: 12, warn: true },
+  { name: 'Sales', description: 'semantic model is structured to track pipeline health, team performance,...', up: 1, down: 0, warn: false },
 ];
 
 const SECOND_QUESTIONS: { text: string; finding: 'clear' | 'missing' }[] = [
@@ -176,8 +172,26 @@ const QUESTION_CATALOG: { text: string; up: number; down: number; verified: bool
 ];
 
 const SECOND_SUGGESTIONS = [
-  { id: 'deals-description', title: 'Add Description', meta: 'Deals' },
-  { id: 'opportunity-description', title: 'Add Description', meta: 'Opportunity' },
+  {
+    id: 'deals-description',
+    title: 'Add Description',
+    meta: 'Data Object - Deals',
+    impact: 'Medium',
+    fields: [
+      ['Data Field Name', 'Deal Name'],
+      ['Description', 'Allows you to identify the deal'],
+    ] as [string, string][],
+  },
+  {
+    id: 'opportunity-description',
+    title: 'Add Description',
+    meta: 'Data Object - Opportunity',
+    impact: 'Medium',
+    fields: [
+      ['Data Field Name', 'Opportunity Name'],
+      ['Description', 'Allows you to identify the opportunity'],
+    ] as [string, string][],
+  },
 ];
 
 const TERMS = [
@@ -226,6 +240,8 @@ export function CustomerZero() {
   const [progress, setProgress] = useState(12);
   const [score, setScore] = useState(40);
   const [applyRunning, setApplyRunning] = useState(false);
+  const [secondApplying, setSecondApplying] = useState(false);
+  const [scoreToast, setScoreToast] = useState(false);
   const [termDrafts, setTermDrafts] = useState<Record<string, string>>({ fresh: '', hq: '' });
   const [savedTerms, setSavedTerms] = useState<string[]>([]);
   const [openTerm, setOpenTerm] = useState('fresh');
@@ -295,6 +311,23 @@ export function CustomerZero() {
       window.clearTimeout(lift);
     };
   }, [phase]);
+
+  useEffect(() => {
+    if (!secondApplying) return;
+    const tick = window.setInterval(() => {
+      setProgress((value) => Math.min(value + 12, 100));
+    }, 200);
+    const hide = window.setTimeout(() => {
+      setProgress(100);
+      setSecondApplying(false);
+      setScore(90);
+      setScoreToast(true);
+    }, 1800);
+    return () => {
+      window.clearInterval(tick);
+      window.clearTimeout(hide);
+    };
+  }, [secondApplying]);
 
   useEffect(() => {
     if (page !== 'questions') return;
@@ -396,12 +429,20 @@ export function CustomerZero() {
     setOpenTerm(upcoming?.id ?? '');
   };
 
+  const startSecondProgress = (next: string[]) => {
+    if (!calibrationDot || secondApplying || score === 90) return;
+    if (!SECOND_SUGGESTIONS.every((item) => next.includes(item.id))) return;
+    setProgress(8);
+    setSecondApplying(true);
+  };
+
   const applyOne = (id: string) => {
     const next = applied.includes(id) ? applied : [...applied, id];
     setApplied(next);
     if (openCalibrationId === id) setOpenCalibrationId('');
     const remaining = CALIBRATIONS.filter((item) => item.id !== 'description' && !next.includes(item.id));
-    if (remaining.length === 0) setPhase('applied');
+    if (remaining.length === 0 && !calibrationDot) setPhase('applied');
+    startSecondProgress(next);
   };
 
   const applyAll = () => {
@@ -410,6 +451,7 @@ export function CustomerZero() {
       setApplied(next);
       setCalibrationDetail(true);
       setPage('calibration');
+      startSecondProgress(next);
       return;
     }
     const suggested = CALIBRATIONS.filter((item) => item.id !== 'description');
@@ -529,24 +571,13 @@ export function CustomerZero() {
             <span className="sidebar-title">Q&amp;A Calibration</span>
           </div>
           <nav className="nav" aria-label="Q&A Calibration">
-            {page === 'verified' ? (
-              <>
-                <button className="nav-item" type="button" onClick={openQuestions}>All Questions</button>
-                <button className="nav-item" type="button" onClick={() => { setCalibrationDetail(false); openCalibration(); }}>calibrations</button>
-                <button className="nav-item active" type="button" onClick={openVerified}>Verified Queries</button>
-              </>
-            ) : (
-              <>
-                <button className={`nav-item ${page === 'home' ? 'active' : ''}`} type="button" onClick={openHome}>Home</button>
-                <button className={`nav-item ${page === 'questions' ? 'active' : ''}`} type="button" onClick={openQuestions}>All Questions</button>
-                <button className={`nav-item ${page === 'classify' ? 'active' : ''}`} type="button" onClick={openVerified}>Verified Queries</button>
-                <button className={`nav-item cz-nav-calibration ${page === 'calibration' ? 'active' : ''}`} type="button" onClick={() => { setCalibrationDetail(false); openCalibration(); }} disabled={!generated}>
-                  Model Calibration
-                  {(generated && !calibrationDot && phase !== 'applied' && phase !== 'classify' && phase !== 'verified' && phase !== 'retesting' && phase !== 'matched') || (calibrationDot && SECOND_SUGGESTIONS.some((item) => !applied.includes(item.id))) ? <span className="cz-nav-dot" aria-hidden="true" /> : null}
-                </button>
-                <button className="nav-item" type="button">Tests</button>
-              </>
-            )}
+            <button className={`nav-item ${page === 'home' ? 'active' : ''}`} type="button" onClick={() => setPage('home')}>Home</button>
+            <button className={`nav-item ${page === 'questions' ? 'active' : ''}`} type="button" onClick={openQuestions}>All Questions</button>
+            <button className={`nav-item ${page === 'classify' || page === 'verified' ? 'active' : ''}`} type="button" onClick={openVerified}>Verified Queries</button>
+            <button className={`nav-item cz-nav-calibration ${page === 'calibration' ? 'active' : ''}`} type="button" onClick={() => { setCalibrationDetail(false); openCalibration(); }} disabled={!generated}>
+              Model Calibration
+              {(generated && !calibrationDot && phase !== 'applied' && phase !== 'classify' && phase !== 'verified' && phase !== 'retesting' && phase !== 'matched') || (calibrationDot && SECOND_SUGGESTIONS.some((item) => !applied.includes(item.id))) ? <span className="cz-nav-dot" aria-hidden="true" /> : null}
+            </button>
           </nav>
         </aside>
 
@@ -574,16 +605,16 @@ export function CustomerZero() {
             <CalibrationHome
               model={model || 'Sales'}
               queryCount={queryCount || '2'}
-              score={calibrationDot ? 40 : null}
+              score={calibrationDot ? (score === 90 ? 90 : 40) : null}
               verifiedCount={verifiedIds.length}
               onReview={() => setCalibrationDetail(true)}
             />
           )}
           {page === 'calibration' && calibrationDetail && (
             <CalibrationPage
-              progress={phase === 'applied' ? progress : 0}
-              showProgress={phase === 'applied' && applyRunning && !calibrationDot}
-              score={calibrationDot ? 60 : null}
+              progress={phase === 'applied' || secondApplying ? progress : 0}
+              showProgress={(phase === 'applied' && applyRunning && !calibrationDot) || secondApplying}
+              score={calibrationDot ? (score === 90 ? 90 : 60) : null}
               followUp={calibrationDot}
               model={model}
               onBack={() => setCalibrationDetail(false)}
@@ -688,6 +719,20 @@ export function CustomerZero() {
           <strong>Jane</strong>
           <p>Hey, we've updated the “c360” model<br />I suggest reviewing the Q&amp;A in case it effected a change on your side</p>
         </aside>
+      )}
+
+      {scoreToast && (
+        <div className="toast toast-accurate" role="status">
+          <div className="toast-body">
+            <span className="toast-icon" aria-hidden="true"><Check size={14} /></span>
+            <span className="toast-text">
+              <span className="toast-title">Generalization score successfully raised from 60% to 90%</span>
+            </span>
+          </div>
+          <button className="toast-close" type="button" aria-label="Dismiss" onClick={() => setScoreToast(false)}>
+            <Close size={14} />
+          </button>
+        </div>
       )}
 
     </div>
@@ -1123,11 +1168,7 @@ function CalibrationPage({
   const suggested = CALIBRATIONS.filter((item) => item.id !== 'description');
   const unlockedSuggestions = suggested.filter((_, index) => savedTerms.includes(TERMS[index]?.id));
   const visibleSuggestions = followUp
-    ? SECOND_SUGGESTIONS.filter((item) => !applied.includes(item.id)).map((item) => ({
-        ...item,
-        impact: 'Medium',
-        fields: [] as [string, string][],
-      }))
+    ? SECOND_SUGGESTIONS.filter((item) => !applied.includes(item.id))
     : unlockedSuggestions.filter((item) => !applied.includes(item.id));
   const findingsCleared = done && !showProgress;
   const questions = followUp
@@ -1153,17 +1194,18 @@ function CalibrationPage({
         {open && (
           <>
             <div className="cz-impact-row">
-              <span className={`cz-impact ${item.impact === 'High' ? 'high' : ''}`}>Impact: {item.impact}</span>
-              <span className="cz-impact-show">show</span>
+              <span className={`cz-impact ${item.impact === 'High' ? 'high' : ''}`}>Impact: {item.impact}<strong>show</strong></span>
             </div>
             {item.fields.map(([label, value]) => (
               <label key={label}>
                 {label}
-                <textarea readOnly value={value} />
+                {label === 'Data Field Name'
+                  ? <input readOnly value={value} />
+                  : <textarea readOnly rows={label === 'Description' ? 2 : 3} value={value} />}
               </label>
             ))}
             <button className="btn btn-brand cz-apply" type="button" onClick={() => onApply(item.id)}>
-              <Plus size={12} /> Apply
+              {item.title === 'Add Description' ? <SparkleSingle size={14} /> : <Plus size={12} />} Apply
             </button>
           </>
         )}
@@ -1178,7 +1220,7 @@ function CalibrationPage({
           <h1>Model Name - {model}</h1>
         </div>
         <div className="cz-meta-line">
-          <span>Generalization Score <b className={`cz-score${score === null ? ' na' : !followUp && score > 40 ? ' up' : ''}`}>{score === null ? 'NA' : `${score}%`}</b></span>
+          <span>Generalization Score <b className={`cz-score${score === null ? ' na' : score >= 90 ? ' up' : ''}`}>{score === null ? 'NA' : `${score}%`}</b></span>
           <span>Run Time: 20 seconds</span>
           <span>Last Modified A week ago</span>
         </div>
@@ -1596,7 +1638,7 @@ function C360ModelPage({
   return (
     <div className="cz-page">
       <div className="cz-title-row">
-        <h1 className="cz-warn-name"><Warning size={18} /> C360</h1>
+        <h1 className="cz-warn-name"><ModelWarningIcon /> C360</h1>
         <div className="cz-tools">
           <button className="btn btn-outlined" type="button" onClick={onBack}>Overall Health</button>
           <button className="btn btn-brand" type="button" onClick={onRun} disabled={testing}>
@@ -1861,6 +1903,10 @@ function ExternalIcon() {
   );
 }
 
+function ModelWarningIcon() {
+  return <img src={warningIcon} alt="" />;
+}
+
 function HomePage({ onOpenC360 }: { onOpenC360: () => void }) {
   return (
     <div className="cz-page">
@@ -1868,18 +1914,19 @@ function HomePage({ onOpenC360 }: { onOpenC360: () => void }) {
       <div className="cz-metrics cz-metrics-3">
         <Metric label="VQ's in Regression" value={0} />
         <Metric label="calibration Suggestions" value={0} />
-        <Metric label="Questions in low scoring" value={0} />
+        <Metric label="Questions in low scoring" value={20} />
       </div>
       <h2 className="cz-section-title">Health by Model</h2>
       <section className="cz-card">
         <div className="cz-toolbar">
           <span />
           <div className="cz-tools">
-            <span className="cz-fake-select">Score <ChevronDown size={12} /></span>
             <label className="cz-search">
               <Search size={14} />
               <input aria-label="Search models" placeholder="Search..." />
             </label>
+            <button className="icon-btn-bordered" type="button" aria-label="Refresh"><RefreshIcon /></button>
+            <button className="icon-btn-bordered" type="button" aria-label="Filter"><FilterIcon size={14} /></button>
           </div>
         </div>
         <table className="cz-table">
@@ -1891,7 +1938,6 @@ function HomePage({ onOpenC360 }: { onOpenC360: () => void }) {
               <th>VQ's in regression</th>
               <th>Calibrations</th>
               <th>Q&amp;A Score</th>
-              <th>Questions</th>
             </tr>
           </thead>
           <tbody>
@@ -1899,24 +1945,20 @@ function HomePage({ onOpenC360 }: { onOpenC360: () => void }) {
               <tr key={item.name}>
                 <td><input type="checkbox" aria-label={`Select ${item.name}`} /></td>
                 <td>
-                  {item.warn ? (
-                    <button className="cz-q cz-warn-name" type="button" onClick={onOpenC360}>
-                      <Warning size={14} /> {item.name}
-                    </button>
-                  ) : (
-                    <button className="cz-q" type="button">{item.name}</button>
-                  )}
+                  <button className={`cz-q${item.warn ? ' cz-warn-name' : ''}`} type="button" onClick={item.warn ? onOpenC360 : undefined}>
+                    {item.warn && <ModelWarningIcon />}
+                    {item.name}
+                  </button>
                 </td>
                 <td>{item.description}</td>
-                <td>{item.regression > 0 ? <span className="cz-reg">{item.regression}</span> : 0}</td>
-                <td>{item.calibrations}</td>
+                <td />
+                <td />
                 <td>
                   <span className="rating">
                     <span><ThumbsUp size={12} /> {item.up}</span>
                     <span><ThumbsDown size={12} /> {item.down}</span>
                   </span>
                 </td>
-                <td><span className="cz-count">{item.questions}</span></td>
               </tr>
             ))}
           </tbody>
@@ -1955,7 +1997,7 @@ function CalibrationHome({
         <div>
           <h2>Model Name : {model}</h2>
           <div className="cz-cal-meta">
-            <span>Generalization Score <b className={`cz-score${score === null ? ' na' : ''}`}>{score === null ? 'NA' : `${score}%`}</b></span>
+            <span>Generalization Score <b className={`cz-score${score === null ? ' na' : score >= 90 ? ' up' : ''}`}>{score === null ? 'NA' : `${score}%`}</b></span>
             <span>Created: <b>20 minutes ago</b></span>
             <span>Number of questions: <b>{queryCount}</b></span>
             <span>Verified Queries <b>{verifiedCount}</b></span>
@@ -1987,6 +2029,7 @@ function VerifiedPage(_props: {
   const [warnHover, setWarnHover] = useState(false);
   const [warnClosed, setWarnClosed] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [passToast, setPassToast] = useState(false);
 
   useEffect(() => {
     if (run !== 'running') return;
@@ -1997,6 +2040,7 @@ function VerifiedPage(_props: {
     const done = window.setTimeout(() => {
       setProgress(100);
       setRun('passed');
+      setPassToast(true);
     }, 1800);
     return () => {
       window.clearInterval(tick);
@@ -2072,11 +2116,6 @@ function VerifiedPage(_props: {
             <button className="cz-stop" type="button" aria-label="Stop test" onClick={() => setRun('idle')} />
           </div>
         )}
-        {run === 'passed' && (
-          <div className="cz-vq-pass">
-            <span>All VQ&apos;s passed the regression test</span>
-          </div>
-        )}
         <div className="cz-vq-table-card">
           <div className="cz-vq-tools">
             <span>{rows.length} questions</span>
@@ -2131,6 +2170,19 @@ function VerifiedPage(_props: {
         </div>
       </section>
       {reviewOpen && <ReviewQueryModal onClose={() => setReviewOpen(false)} />}
+      {passToast && run === 'passed' && (
+        <div className="toast toast-accurate" role="status">
+          <div className="toast-body">
+            <span className="toast-icon" aria-hidden="true"><Check size={14} /></span>
+            <span className="toast-text">
+              <span className="toast-title">All verified queries passed the regression test</span>
+            </span>
+          </div>
+          <button className="toast-close" type="button" aria-label="Dismiss" onClick={() => setPassToast(false)}>
+            <Close size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -2206,30 +2258,32 @@ function LakeArt() {
 
 function SourceIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-      <circle cx="3" cy="7" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="11" cy="3.2" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="11" cy="10.8" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M4.5 6.4 9.4 3.8M4.5 7.6 9.4 10.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <path d="M4.97722 5.81744C5.0634 4.91253 5.32196 4.02917 5.75289 3.27508C6.46392 2.04699 7.60588 1.33599 9.15722 1.2929C9.31073 0.861993 9.60969 0.498414 10.0056 0.266801C10.4015 0.0351878 10.8648 -0.0483007 11.3145 0.0271082C11.7643 0.10521 12.1737 0.339517 12.47 0.689629C12.7635 1.03974 12.9278 1.48142 12.9278 1.93926C12.9278 2.3971 12.7662 2.83878 12.47 3.1889C12.1764 3.53901 11.767 3.77331 11.3145 3.85142C10.8648 3.92952 10.3988 3.84334 10.0056 3.61172C9.61238 3.38011 9.31073 3.01653 9.15722 2.58562C7.41196 2.65026 6.46392 4.00762 6.27 5.81744H9.15722C9.31073 5.38653 9.60969 5.02295 10.0056 4.79134C10.4015 4.55972 10.8648 4.47623 11.3145 4.55164C11.7643 4.62974 12.1737 4.86405 12.47 5.21416C12.7635 5.56428 12.9278 6.00596 12.9278 6.4638C12.9278 6.92164 12.7662 7.36332 12.47 7.71343C12.1764 8.06354 11.767 8.29785 11.3145 8.37595C10.8648 8.45405 10.3988 8.36787 10.0056 8.13626C9.61238 7.90465 9.31073 7.54107 9.15722 7.11016H6.27C6.42082 9.04925 7.32577 10.3635 9.15722 10.342C9.31073 9.91106 9.60969 9.54748 10.0056 9.31587C10.4015 9.08426 10.8648 9.00077 11.3145 9.07618C11.7643 9.15428 12.1737 9.38859 12.47 9.7387C12.7635 10.0888 12.9278 10.5305 12.9278 10.9883C12.9278 11.4462 12.7662 11.8879 12.47 12.238C12.1764 12.5881 11.767 12.8224 11.3145 12.9005C10.8648 12.9786 10.3988 12.8924 10.0056 12.6608C9.61238 12.4292 9.31073 12.0656 9.15722 11.6347C7.56278 11.6562 6.39928 10.9237 5.68825 9.67406C5.27887 8.91997 5.04185 8.03661 4.97722 7.11016H3.77062C3.6171 7.54107 3.31814 7.90465 2.92223 8.13626C2.52631 8.36787 2.06307 8.45136 1.61329 8.37595C1.1635 8.29785 0.754124 8.06354 0.457861 7.71343C0.164291 7.36332 0 6.92164 0 6.4638C0 6.00596 0.161598 5.56428 0.457861 5.21416C0.75143 4.86405 1.16081 4.62974 1.61329 4.55164C2.06307 4.47354 2.52901 4.55972 2.92223 4.79134C3.31545 5.02295 3.6171 5.38653 3.77062 5.81744H4.97722ZM10.9887 2.58562C11.3549 2.58562 11.635 2.30553 11.635 1.93926C11.635 1.57299 11.3549 1.2929 10.9887 1.2929C10.6224 1.2929 10.3423 1.57299 10.3423 1.93926C10.3423 2.30553 10.6224 2.58562 10.9887 2.58562ZM10.9887 11.6347C11.3549 11.6347 11.635 11.3546 11.635 10.9883C11.635 10.6221 11.3549 10.342 10.9887 10.342C10.6224 10.342 10.3423 10.6221 10.3423 10.9883C10.3423 11.3546 10.6224 11.6347 10.9887 11.6347ZM10.9887 7.11016C11.3549 7.11016 11.635 6.83007 11.635 6.4638C11.635 6.09753 11.3549 5.81744 10.9887 5.81744C10.6224 5.81744 10.3423 6.09753 10.3423 6.4638C10.3423 6.83007 10.6224 7.11016 10.9887 7.11016ZM1.93918 7.11016C2.30546 7.11016 2.58557 6.83007 2.58557 6.4638C2.58557 6.09753 2.30546 5.81744 1.93918 5.81744C1.57289 5.81744 1.29278 6.09753 1.29278 6.4638C1.29278 6.83007 1.57289 7.11016 1.93918 7.11016Z" fill="#0250D9" />
     </svg>
   );
 }
 
 function SlackIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-      <path d="M5.2 1.2h1.4v3.2H5.2A1.6 1.6 0 1 1 5.2 1.2Zm0 4.4h4.8V7H5.2V5.6ZM1.2 5.2A1.6 1.6 0 1 1 4.4 5.2v1.4H1.2V5.2Zm8.8 0h1.4A1.6 1.6 0 1 1 8.8 7V5.6h1.2V5.2ZM8.8 8.4v3.2A1.6 1.6 0 1 1 7.2 10V8.4h1.6ZM5.6 12.8A1.6 1.6 0 1 1 7 9.6V8.4H5.6v4.4Z" fill="currentColor" />
+    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <path d="M2.71923 8.15757C2.71923 8.51459 2.5774 8.85699 2.32495 9.10945C2.0725 9.3619 1.7301 9.50373 1.37308 9.50373C1.01605 9.50373 0.673655 9.3619 0.421202 9.10945C0.16875 8.85699 0.026923 8.51459 0.026923 8.15757C0.026923 7.80055 0.16875 7.45815 0.421202 7.2057C0.673655 6.95324 1.01605 6.81142 1.37308 6.81142H2.71923V8.15757Z" fill="#0250D9" />
+      <path d="M3.39231 8.15757C3.39231 7.80055 3.53413 7.45815 3.78659 7.2057C4.03904 6.95324 4.38144 6.81142 4.73846 6.81142C5.09375 6.81697 5.43294 6.96058 5.6842 7.21184C5.93545 7.4631 6.07906 7.80228 6.08462 8.15757V11.5768C6.08462 11.7536 6.0498 11.9286 5.98215 12.092C5.9145 12.2553 5.81534 12.4037 5.69034 12.5287C5.56533 12.6537 5.41694 12.7528 5.25361 12.8205C5.09029 12.8881 4.91524 12.923 4.73846 12.923C4.38317 12.9174 4.04399 12.7738 3.79273 12.5225C3.54147 12.2713 3.39786 11.9321 3.39231 11.5768V8.15757Z" fill="#0250D9" />
+      <path d="M4.76539 2.71911C4.40836 2.71911 4.06596 2.57728 3.81351 2.32483C3.56106 2.07238 3.41923 1.72998 3.41923 1.37296C3.41923 1.01593 3.56106 0.673533 3.81351 0.42108C4.06596 0.168627 4.40836 0.026801 4.76539 0.026801C5.12241 0.026801 5.46481 0.168627 5.71726 0.42108C5.96971 0.673533 6.11154 1.01593 6.11154 1.37296V2.71911H4.76539Z" fill="#0250D9" />
+      <path d="M4.76539 3.39219C4.94216 3.39219 5.11721 3.42701 5.28054 3.49466C5.44386 3.56231 5.59226 3.66146 5.71726 3.78647C5.84226 3.91147 5.94142 4.05987 6.00907 4.22319C6.07672 4.38651 6.11154 4.56156 6.11154 4.73834C6.10599 5.09363 5.96238 5.43281 5.71112 5.68407C5.45986 5.93533 5.12068 6.07894 4.76539 6.08449H1.34615C0.989132 6.08449 0.646732 5.94267 0.394279 5.69021C0.141827 5.43776 0 5.09536 0 4.73834C0.00555243 4.38305 0.149162 4.04387 0.400421 3.79261C0.65168 3.54135 0.990863 3.39774 1.34615 3.39219H4.76539Z" fill="#0250D9" />
+      <path d="M10.2038 4.76526C10.2038 4.49902 10.2828 4.23875 10.4307 4.01738C10.5786 3.79601 10.7889 3.62347 11.0348 3.52158C11.2808 3.41969 11.5515 3.39303 11.8126 3.44498C12.0738 3.49692 12.3136 3.62513 12.5019 3.81339C12.6901 4.00165 12.8183 4.24151 12.8703 4.50264C12.9222 4.76377 12.8956 5.03444 12.7937 5.28041C12.6918 5.52639 12.5193 5.73663 12.2979 5.88455C12.0765 6.03247 11.8162 6.11142 11.55 6.11142H10.2038V4.76526Z" fill="#0250D9" />
+      <path d="M9.53077 4.76526C9.53077 5.12229 9.38894 5.46468 9.13649 5.71714C8.88404 5.96959 8.54164 6.11142 8.18462 6.11142C7.82759 6.11142 7.48519 5.96959 7.23274 5.71714C6.98029 5.46468 6.83846 5.12229 6.83846 4.76526V1.34603C6.83846 0.98901 6.98029 0.64661 7.23274 0.394157C7.48519 0.141704 7.82759 -0.00012207 8.18462 -0.00012207C8.53991 0.00543036 8.87909 0.149039 9.13035 0.400299C9.38161 0.651558 9.52522 0.990741 9.53077 1.34603V4.76526Z" fill="#0250D9" />
+      <path d="M8.15769 10.2037C8.42394 10.2037 8.6842 10.2827 8.90557 10.4306C9.12695 10.5785 9.29949 10.7887 9.40138 11.0347C9.50326 11.2807 9.52992 11.5514 9.47798 11.8125C9.42604 12.0736 9.29783 12.3135 9.10957 12.5018C8.9213 12.69 8.68144 12.8182 8.42031 12.8702C8.15919 12.9221 7.88852 12.8954 7.64254 12.7936C7.39656 12.6917 7.18632 12.5191 7.03841 12.2978C6.89049 12.0764 6.81154 11.8161 6.81154 11.5499V10.2037H8.15769Z" fill="#0250D9" />
+      <path d="M8.15769 9.53065C7.80067 9.53065 7.45827 9.38882 7.20582 9.13637C6.95337 8.88392 6.81154 8.54152 6.81154 8.18449C6.81709 7.8292 6.9607 7.49002 7.21196 7.23876C7.46322 6.9875 7.8024 6.84389 8.15769 6.83834H11.5769C11.9339 6.83834 12.2763 6.98017 12.5288 7.23262C12.7813 7.48507 12.9231 7.82747 12.9231 8.18449C12.9175 8.53979 12.7739 8.87897 12.5227 9.13023C12.2714 9.38149 11.9322 9.5251 11.5769 9.53065H8.15769Z" fill="#0250D9" />
     </svg>
   );
 }
 
 function DashboardIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-      <rect x="1.2" y="1.2" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <rect x="7.8" y="1.2" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <rect x="1.2" y="7.8" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <rect x="7.8" y="7.8" width="5" height="5" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <rect width="14" height="14" rx="4" fill="#5867E8" />
+      <path d="M3.15 2.75802H5.95C6.146 2.75802 6.3 2.91202 6.3 3.10802V10.794C6.3 10.99 6.146 11.144 5.95 11.144H3.15C2.954 11.144 2.8 10.99 2.8 10.794V3.10802C2.8 2.91202 2.954 2.75802 3.15 2.75802ZM8.05 2.74402H10.85C11.046 2.74402 11.2 2.89802 11.2 3.09402V5.88002C11.2 6.07602 11.046 6.23002 10.85 6.23002H8.05C7.854 6.23002 7.7 6.07602 7.7 5.88002V3.09402C7.7 2.89802 7.854 2.74402 8.05 2.74402ZM8.05 7.64402H10.85C11.046 7.64402 11.2 7.79802 11.2 7.99402V10.78C11.2 10.976 11.046 11.13 10.85 11.13H8.05C7.854 11.13 7.7 10.976 7.7 10.78V7.99402C7.7 7.81202 7.854 7.64402 8.05 7.64402Z" fill="white" />
     </svg>
   );
 }
