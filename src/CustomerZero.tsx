@@ -19,6 +19,7 @@ import {
   SparkleSingle,
   ThumbsDown,
   ThumbsUp,
+  Undo,
   Warning,
 } from './components/Icons';
 
@@ -104,8 +105,8 @@ const HEALTH_MODELS = [
 const SECOND_QUESTIONS: { text: string; finding: 'clear' | 'missing' }[] = [
   { text: 'What is the average NPS score of all customers that have critical tickets and open pipelines?', finding: 'clear' },
   { text: 'Compare lead conversion rate in the prior month for different sources, when responding to pipeline questions', finding: 'clear' },
-  { text: 'What is our average days to close?', finding: 'missing' },
-  { text: 'Show me the total sales amount and opportunity type for closed won deals', finding: 'missing' },
+  { text: 'What is our average days to close?', finding: 'clear' },
+  { text: 'Show me the total sales amount and opportunity type for closed won deals', finding: 'clear' },
   { text: 'How does the average deal size of opportunities for new business compare to existing?', finding: 'clear' },
   { text: 'Compare the average deal size for each lead source.', finding: 'clear' },
   { text: "What's the total opportunity amount by opportunity stage for this quarter", finding: 'clear' },
@@ -253,15 +254,22 @@ export function CustomerZero() {
   const [correction, setCorrection] = useState('');
   const [revisionReady, setRevisionReady] = useState(false);
   const [analysing, setAnalysing] = useState(false);
+  const [noteApplied, setNoteApplied] = useState(false);
+  const [savingQuery, setSavingQuery] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [reclassified, setReclassified] = useState<'accurate' | 'inaccurate' | null>(null);
   const [changeChoice, setChangeChoice] = useState<'keep' | null>(null);
   const [saving, setSaving] = useState(false);
   const [calibrationDot, setCalibrationDot] = useState(false);
+  const [classificationNavDot, setClassificationNavDot] = useState(false);
   const [secondDone, setSecondDone] = useState(false);
   const [showSlack, setShowSlack] = useState(false);
   const [slackLeaving, setSlackLeaving] = useState(false);
   const [slackShown, setSlackShown] = useState(false);
   const skipQuestionLanding = useRef(false);
+  const applyTimer = useRef<number | null>(null);
+  const saveTimer = useRef<number | null>(null);
+  const verifyTimer = useRef<number | null>(null);
   const [c360Test, setC360Test] = useState<'idle' | 'running' | 'passed'>('idle');
   const [c360Progress, setC360Progress] = useState(0);
   const [verifiedIds, setVerifiedIds] = useState<string[]>([]);
@@ -330,6 +338,12 @@ export function CustomerZero() {
   }, [secondApplying]);
 
   useEffect(() => {
+    if (!scoreToast) return;
+    const hide = window.setTimeout(() => setScoreToast(false), 6000);
+    return () => window.clearTimeout(hide);
+  }, [scoreToast]);
+
+  useEffect(() => {
     if (page !== 'questions') return;
     if (!calibrationDot || skipQuestionLanding.current) return;
     setSecondDone(true);
@@ -382,11 +396,19 @@ export function CustomerZero() {
     setCorrection('');
     setRevisionReady(false);
     setAnalysing(false);
+    setNoteApplied(false);
+    setSavingQuery(false);
+    setVerifying(false);
     setReclassified(null);
     setChangeChoice(null);
     setSaving(false);
     const timer = window.setTimeout(() => setAnswerReady(true), 1200);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      if (applyTimer.current) window.clearTimeout(applyTimer.current);
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      if (verifyTimer.current) window.clearTimeout(verifyTimer.current);
+    };
   }, [phase, classifyIndex]);
 
   const openQuestions = () => {
@@ -475,6 +497,7 @@ export function CustomerZero() {
       setClassifyIndex(classifyIndex + 1);
     } else {
       setCalibrationDot(true);
+      setClassificationNavDot(true);
       skipQuestionLanding.current = true;
       if (nextVerified.length === QUESTIONS.length) {
         setPhase('verified');
@@ -507,18 +530,48 @@ export function CustomerZero() {
   };
 
   const applyRevision = () => {
-    if (!correction.trim() || analysing || revisionReady) return;
+    if (!correction.trim() || analysing || noteApplied) return;
     setAnalysing(true);
-    window.setTimeout(() => {
+    if (applyTimer.current) window.clearTimeout(applyTimer.current);
+    applyTimer.current = window.setTimeout(() => {
       setAnalysing(false);
       setRevisionReady(true);
+      setNoteApplied(true);
+      setSavingQuery(true);
+      saveTimer.current = window.setTimeout(() => setSavingQuery(false), 1400);
     }, 1600);
   };
 
-  const revertRevision = () => {
-    setRevisionReady(false);
-    setChangeChoice(null);
-    setReclassified(null);
+  const confirmVerified = () => {
+    if (verifying) return;
+    if (applyTimer.current) window.clearTimeout(applyTimer.current);
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    setAnalysing(false);
+    setSavingQuery(false);
+    setPicked('accurate');
+    setVerifying(true);
+    const id = QUESTIONS[classifyIndex].id;
+    verifyTimer.current = window.setTimeout(() => {
+      const nextVerified = verifiedIds.includes(id) ? verifiedIds : [...verifiedIds, id];
+      setVerifiedIds(nextVerified);
+      setClassificationNavDot(true);
+      if (nextVerified.length === QUESTIONS.length) {
+        skipQuestionLanding.current = true;
+        setCalibrationDot(true);
+        setPhase('verified');
+      }
+      setVerifying(false);
+      setPage('questions');
+    }, 2000);
+  };
+
+  const reverseNote = () => {
+    if (applyTimer.current) window.clearTimeout(applyTimer.current);
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    setAnalysing(false);
+    setSavingQuery(false);
+    setCorrection('');
+    setNoteApplied(false);
   };
 
   const retest = () => {
@@ -575,8 +628,8 @@ export function CustomerZero() {
             <button className={`nav-item ${page === 'questions' ? 'active' : ''}`} type="button" onClick={openQuestions}>All Questions</button>
             <button className={`nav-item ${page === 'classify' || page === 'verified' ? 'active' : ''}`} type="button" onClick={openVerified}>Verified Queries</button>
             <button className={`nav-item cz-nav-calibration ${page === 'calibration' ? 'active' : ''}`} type="button" onClick={() => { setCalibrationDetail(false); openCalibration(); }} disabled={!generated}>
-              Model Calibration
-              {(generated && !calibrationDot && phase !== 'applied' && phase !== 'classify' && phase !== 'verified' && phase !== 'retesting' && phase !== 'matched') || (calibrationDot && SECOND_SUGGESTIONS.some((item) => !applied.includes(item.id))) ? <span className="cz-nav-dot" aria-hidden="true" /> : null}
+              <span>Model Calibration</span>
+              {(classificationNavDot && SECOND_SUGGESTIONS.some((item) => !applied.includes(item.id))) || (generated && !classificationNavDot && !bothVerified && phase !== 'classify' && phase !== 'retesting' && phase !== 'matched') || ((calibrationDot || bothVerified) && SECOND_SUGGESTIONS.some((item) => !applied.includes(item.id))) ? <span className="cz-nav-dot" aria-hidden="true" /> : null}
             </button>
           </nav>
         </aside>
@@ -614,7 +667,7 @@ export function CustomerZero() {
             <CalibrationPage
               progress={phase === 'applied' || secondApplying ? progress : 0}
               showProgress={(phase === 'applied' && applyRunning && !calibrationDot) || secondApplying}
-              score={calibrationDot ? (score === 90 ? 90 : 60) : null}
+              score={calibrationDot ? (score === 90 ? 90 : 40) : null}
               followUp={calibrationDot}
               model={model}
               onBack={() => setCalibrationDetail(false)}
@@ -639,6 +692,7 @@ export function CustomerZero() {
               answerReady={answerReady}
               saving={saving}
               revised={revisionReady}
+              savingQuery={savingQuery}
               onBack={() => {
                 if (classifyIndex === 0) {
                   setCalibrationDetail(true);
@@ -676,26 +730,39 @@ export function CustomerZero() {
             picked={picked}
             saving={saving}
             correction={correction}
-            onCorrection={setCorrection}
-            revisionReady={revisionReady}
-            analysing={analysing}
-            reclassified={reclassified}
-            onApplyRevision={applyRevision}
-            onKeepRevision={() => setChangeChoice('keep')}
-            onRevertRevision={revertRevision}
-            kept={changeChoice === 'keep'}
-            onPick={(choice) => {
-              if (choice === 'inaccurate') setPicked('inaccurate');
-              else runClassification('accurate');
+            onCorrection={(value) => {
+              setCorrection(value);
+              setNoteApplied(false);
             }}
-            onRepick={(choice) => {
-              setReclassified(choice);
-              runClassification(choice);
+            analysing={analysing}
+            noteApplied={noteApplied}
+            verifying={verifying}
+            onApplyRevision={applyRevision}
+            onReverse={reverseNote}
+            onPick={(choice) => {
+              if (verifying) return;
+              if (choice === 'inaccurate') {
+                setCorrection('');
+                setNoteApplied(false);
+                setPicked('inaccurate');
+              } else if (picked === 'inaccurate') {
+                confirmVerified();
+              } else {
+                if (applyTimer.current) window.clearTimeout(applyTimer.current);
+                if (saveTimer.current) window.clearTimeout(saveTimer.current);
+                setAnalysing(false);
+                setSavingQuery(false);
+                runClassification('accurate');
+              }
             }}
             onChange={() => {
+              if (applyTimer.current) window.clearTimeout(applyTimer.current);
+              if (saveTimer.current) window.clearTimeout(saveTimer.current);
               setPicked(null);
               setRevisionReady(false);
               setAnalysing(false);
+              setSavingQuery(false);
+              setNoteApplied(false);
               setReclassified(null);
               setChangeChoice(null);
             }}
@@ -726,7 +793,7 @@ export function CustomerZero() {
           <div className="toast-body">
             <span className="toast-icon" aria-hidden="true"><Check size={14} /></span>
             <span className="toast-text">
-              <span className="toast-title">Generalization score successfully raised from 60% to 90%</span>
+              <span className="toast-title">Generalization score successfully raised from 40% to 90%</span>
             </span>
           </div>
           <button className="toast-close" type="button" aria-label="Dismiss" onClick={() => setScoreToast(false)}>
@@ -1238,11 +1305,17 @@ function CalibrationPage({
             {questions.map((question, index) => (
               <tr key={`${question.text}-${index}`}>
                 <td>{question.text}</td>
-                <td><span className="cz-pill">New</span></td>
+                <td>
+                  {followUp && index < 2
+                    ? <span className="cz-pill cz-pill-verified"><Shield size={12} /> Verified</span>
+                    : <span className="cz-pill">New</span>}
+                </td>
                 <td>
                   {question.finding === 'missing'
                     ? <span className="cz-pill cz-pill-warn">{followUp ? 'Missing Definition' : 'Missing Definitions'}</span>
-                    : <span className="cz-pill cz-pill-clear">Intent Clear</span>}
+                    : followUp && index < 2
+                      ? <span className="cz-model-gap">Model Gap</span>
+                      : 'No Findings'}
                 </td>
               </tr>
             ))}
@@ -1326,12 +1399,14 @@ function ClassifyDetail({
   answerReady,
   saving,
   revised,
+  savingQuery,
   onBack,
 }: {
   question: DemoQuestion;
   answerReady: boolean;
   saving: boolean;
   revised: boolean;
+  savingQuery: boolean;
   onBack: () => void;
 }) {
   const max = Math.max(...question.chart.map((point) => point.value));
@@ -1363,7 +1438,7 @@ function ClassifyDetail({
       </div>
 
       <div className="evaluation-card-wrapper">
-        <div className="evaluation-card">
+        <div className={`evaluation-card${savingQuery ? ' is-saving' : ''}`}>
           <section className="eval-panel">
             <div className="eval-panel-header"><span className="eval-panel-title">Q&amp;A Preview</span></div>
             <div className="eval-panel-body">
@@ -1414,11 +1489,17 @@ function ClassifyDetail({
                 <button className="panel-tab active" type="button"><Code size={14} /> Query</button>
               </div>
             </div>
-            <div className={`eval-panel-body no-pad cz-query-pane ${answerReady || revised ? '' : 'is-loading'}`}>
-              {revised ? <QueryDiff questionId={question.id} /> : <pre>{question.sql}</pre>}
-              {!answerReady && !revised && <DotSpinner />}
+            <div className={`eval-panel-body no-pad cz-query-pane ${(!answerReady && !revised) || savingQuery ? 'is-loading' : ''}`}>
+              {revised && !savingQuery ? <QueryDiff questionId={question.id} /> : <pre>{question.sql}</pre>}
+              {!answerReady && !revised && !savingQuery && <DotSpinner />}
             </div>
           </section>
+          {savingQuery && (
+            <div className="cz-saving-calibration" role="status">
+              <AnalyseRing />
+              <p>Saving Calibration</p>
+            </div>
+          )}
           {saving && (
             <div className="saving-blanket">
               <div className="spinner" />
@@ -1438,15 +1519,12 @@ function ClassificationRail({
   saving,
   correction,
   onCorrection,
-  revisionReady,
   analysing,
-  reclassified,
+  noteApplied,
+  verifying,
   onApplyRevision,
-  onKeepRevision,
-  onRevertRevision,
-  kept,
+  onReverse,
   onPick,
-  onRepick,
   onChange,
   canGoBack,
   onBack,
@@ -1458,15 +1536,12 @@ function ClassificationRail({
   saving: boolean;
   correction: string;
   onCorrection: (value: string) => void;
-  revisionReady: boolean;
   analysing: boolean;
-  reclassified: 'accurate' | 'inaccurate' | null;
+  noteApplied: boolean;
+  verifying: boolean;
   onApplyRevision: () => void;
-  onKeepRevision: () => void;
-  onRevertRevision: () => void;
-  kept: boolean;
+  onReverse: () => void;
   onPick: (choice: 'accurate' | 'inaccurate') => void;
-  onRepick: (choice: 'accurate' | 'inaccurate') => void;
   onChange: () => void;
   canGoBack: boolean;
   onBack: () => void;
@@ -1485,52 +1560,59 @@ function ClassificationRail({
           <div className="progress-label"><strong>{remaining} questions</strong> left to review in model</div>
         </div>
         {picked === 'inaccurate' ? (
-          <div className="inaccurate-body">
-            <p className="inaccurate-prompt">Please describe what went wrong and the desired state (one issue at a time).</p>
-            <div className={`ai-input-wrap ${correction.trim() ? 'has-content' : ''} ${analysing ? 'is-analysing' : ''}`}>
-              <div className="ai-input-glow" aria-hidden />
-              <div className="ai-input">
-                <span className="ai-input-icon" aria-hidden><SparkleSingle size={14} /></span>
-                <textarea
-                  className="ai-input-textarea"
-                  value={correction}
-                  onChange={(event) => onCorrection(event.target.value)}
-                  rows={6}
-                  readOnly={analysing || revisionReady}
-                  placeholder="The agent used 'Total Orders' field but the expected query references 'Pipeline Value' instead."
-                />
-                {analysing && (
-                  <div className="cz-analyse" role="status">
-                    <span className="cz-analyse-ring" aria-hidden="true">{Array.from({ length: 8 }, (_, index) => <i key={index} />)}</span>
-                    <p>Analysing desired request</p>
+          <div className="classification-body">
+            <div className="classification-cards cz-choice-stack">
+              <div className="classification-option inaccurate selected cz-inaccurate-open">
+                <div className="cz-inaccurate-head">
+                  <div className="option-icon"><Warning size={16} /></div>
+                  <div className="option-content">
+                    <div className="option-title">Inaccurate</div>
+                    <div className="option-desc">Explain the issue to help calibrate the semantic model for more accurate results.</div>
                   </div>
-                )}
+                  <div className="option-check"><Check size={14} /></div>
+                </div>
+                <div className={`ai-input-wrap ${correction.trim() ? 'has-content' : ''} ${analysing ? 'is-analysing' : ''}`}>
+                  <div className="ai-input-glow" aria-hidden />
+                  <div className="ai-input">
+                    <span className="ai-input-icon" aria-hidden><SparkleSingle size={14} /></span>
+                    <textarea
+                      className="ai-input-textarea"
+                      value={correction}
+                      onChange={(event) => onCorrection(event.target.value)}
+                      rows={4}
+                      readOnly={analysing}
+                    />
+                    {analysing && (
+                      <div className="cz-analyse" role="status">
+                        <AnalyseRing />
+                        <p>Analysing desired request</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="cz-inaccurate-actions">
+                  <button className="cz-reverse" type="button" aria-label="Reverse" onClick={onReverse}>
+                    <Undo size={14} />
+                  </button>
+                  {noteApplied ? (
+                    <span className="cz-applied-wrap">
+                      <span className="cz-applied-check" aria-hidden="true"><Check size={12} /></span>
+                      <button className="cz-applied" type="button" disabled>Applied</button>
+                    </span>
+                  ) : (
+                    <button className={`btn-pill-outline cz-apply-note${correction.trim() && !analysing ? ' is-ready' : ''}`} type="button" disabled={!correction.trim() || analysing} onClick={onApplyRevision}>Apply</button>
+                  )}
+                </div>
               </div>
+              <button className={`classification-option verified ${verifying ? 'selected' : ''}`} type="button" disabled={verifying} onClick={() => onPick('accurate')}>
+                <div className="option-icon"><Shield size={16} /></div>
+                <div className="option-content">
+                  <div className="option-title">Verified</div>
+                  <div className="option-desc">This response is correct and will be saved as expected query for future agent responses.</div>
+                </div>
+                {verifying && <div className="option-check"><Check size={14} /></div>}
+              </button>
             </div>
-            <div className="cz-explain-row">
-              <div className="alt-action">
-                OR <button type="button" className="link-button" onClick={onChange}>Classify Manually</button>
-              </div>
-              <button className="btn-pill-outline" type="button" disabled={!correction.trim() || analysing || revisionReady} onClick={onApplyRevision}>{revisionReady ? 'Applied' : 'Apply'}</button>
-            </div>
-            {revisionReady && (
-              <div className="cz-change-choice" role="radiogroup" aria-label="Query change">
-                <label>
-                  <input type="radio" name="query-change" checked={kept} onChange={onKeepRevision} />
-                  Save the current change
-                </label>
-                <label>
-                  <input type="radio" name="query-change" checked={false} onChange={onRevertRevision} />
-                  Revert action
-                </label>
-              </div>
-            )}
-            {revisionReady && kept && (
-              <>
-                <p className="classification-prompt">How would you classify the agent&apos;s response?</p>
-                <ChoiceCards picked={reclassified} onPick={onRepick} />
-              </>
-            )}
           </div>
         ) : (
           <div className="classification-body">
@@ -1611,6 +1693,14 @@ function QueryDiff({ questionId }: { questionId: string }) {
         </div>
       ))}
     </pre>
+  );
+}
+
+function AnalyseRing() {
+  return (
+    <span className="cz-analyse-ring" aria-hidden="true">
+      {Array.from({ length: 8 }, (_, index) => <i key={index} />)}
+    </span>
   );
 }
 
