@@ -261,7 +261,6 @@ export function CustomerZero() {
   const [changeChoice, setChangeChoice] = useState<'keep' | null>(null);
   const [saving, setSaving] = useState(false);
   const [calibrationDot, setCalibrationDot] = useState(false);
-  const [classificationNavDot, setClassificationNavDot] = useState(false);
   const [secondDone, setSecondDone] = useState(false);
   const [showSlack, setShowSlack] = useState(false);
   const [slackLeaving, setSlackLeaving] = useState(false);
@@ -497,7 +496,6 @@ export function CustomerZero() {
       setClassifyIndex(classifyIndex + 1);
     } else {
       setCalibrationDot(true);
-      setClassificationNavDot(true);
       skipQuestionLanding.current = true;
       if (nextVerified.length === QUESTIONS.length) {
         setPhase('verified');
@@ -554,7 +552,6 @@ export function CustomerZero() {
     verifyTimer.current = window.setTimeout(() => {
       const nextVerified = verifiedIds.includes(id) ? verifiedIds : [...verifiedIds, id];
       setVerifiedIds(nextVerified);
-      setClassificationNavDot(true);
       if (nextVerified.length === QUESTIONS.length) {
         skipQuestionLanding.current = true;
         setCalibrationDot(true);
@@ -629,7 +626,7 @@ export function CustomerZero() {
             <button className={`nav-item ${page === 'classify' || page === 'verified' ? 'active' : ''}`} type="button" onClick={openVerified}>Verified Queries</button>
             <button className={`nav-item cz-nav-calibration ${page === 'calibration' ? 'active' : ''}`} type="button" onClick={() => { setCalibrationDetail(false); openCalibration(); }} disabled={!generated}>
               <span>Model Calibration</span>
-              {(classificationNavDot && SECOND_SUGGESTIONS.some((item) => !applied.includes(item.id))) || (generated && !classificationNavDot && !bothVerified && phase !== 'classify' && phase !== 'retesting' && phase !== 'matched') || ((calibrationDot || bothVerified) && SECOND_SUGGESTIONS.some((item) => !applied.includes(item.id))) ? <span className="cz-nav-dot" aria-hidden="true" /> : null}
+              {(generated && !calibrationDot && phase !== 'applied' && phase !== 'classify' && phase !== 'verified' && phase !== 'retesting' && phase !== 'matched') || (calibrationDot && SECOND_SUGGESTIONS.some((item) => !applied.includes(item.id))) ? <span className="cz-nav-dot" aria-hidden="true" /> : null}
             </button>
           </nav>
         </aside>
@@ -1334,10 +1331,6 @@ function CalibrationPage({
           </div>
         ) : (
           <>
-            <div className="cz-rail-head">
-              <strong>Calibrate</strong>
-              <span className="cz-ai">AI-generated</span>
-            </div>
             <div className="cz-rail-scroll">
             <section className="cz-cals">
               <h2>Suggested Calibrations</h2>
@@ -1549,6 +1542,8 @@ function ClassificationRail({
 }) {
   const remaining = total - accurateCount;
   const progress = total > 0 ? Math.round((accurateCount / total) * 100) : 0;
+  const [appliedHover, setAppliedHover] = useState(false);
+  const [appliedClosed, setAppliedClosed] = useState(false);
   return (
     <aside className="builder-rail">
       <div className="classification-panel">
@@ -1596,7 +1591,21 @@ function ClassificationRail({
                   </button>
                   {noteApplied ? (
                     <span className="cz-applied-wrap">
-                      <span className="cz-applied-check" aria-hidden="true"><Check size={12} /></span>
+                      <span
+                        className="cz-applied-check"
+                        onMouseEnter={() => setAppliedHover(true)}
+                        onMouseLeave={() => { setAppliedHover(false); setAppliedClosed(false); }}
+                      >
+                        <Check size={12} />
+                        {appliedHover && !appliedClosed && (
+                          <div className="cz-applied-pop" role="tooltip">
+                            <button className="cz-applied-pop-close" type="button" aria-label="Close" onClick={() => setAppliedClosed(true)}>
+                              <Close size={14} />
+                            </button>
+                            <p>Understood: the agent referenced Total Orders, but you expect Pipeline Value. Updated the query to select pipeline_orders and pipeline_orders_amount and rebuilt the chart for Pipeline Value by month.</p>
+                          </div>
+                        )}
+                      </span>
                       <button className="cz-applied" type="button" disabled>Applied</button>
                     </span>
                   ) : (
